@@ -195,7 +195,7 @@ check("B14 selected note keeps the remembered Look in field", seen["prefill"] ==
 # 3.2: the search bar's default field is its own button next to the search bar (no dialog, no typing)
 pkg._save_config({"search_bar_field": ""})
 bar = b._simple_search_bar_button
-check("B15 button shows the current setting (off = all fields)", bar.text() == "Search bar: all fields ▾", bar.text())
+check("B15 button shows the current setting (default Auto)", bar.text() == "Search bar: Auto ▾", bar.text())
 m = bar.menu(); m.aboutToShow.emit()
 def _all_actions(menu):
     out = []

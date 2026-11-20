@@ -12,7 +12,7 @@ menu, one settings file and one place to switch parts on and off.
 | **Change Deck counts** | Adds “Change Deck…” to the Browser's right-click menu and shows New / Learn / Due and note counts per deck in that dialog. | Browser right-click menu |
 | **Words Left** | Adds a “Words left” column to the deck list: notes you have not started yet. | Deck list |
 | **Deck Progress** | Named counters of studied cards or words below the deck list. | Tools › Learning Toolkit › Deck Progress… |
-| **Search Assistant** | A word-search panel in the Browser (exact, contains, related, meaning, everywhere) and a search dialog that writes the Anki query for you. Read-only. | Browser sidebar, Browser › Search… |
+| **Search Assistant** | Word search in the Browser sidebar: results appear while you type, *Auto* picks the right fields (characters → the word, Latin text → word or meaning), and it searches the deck you are in. The normal search bar can use the same Auto mode. Read-only. | Browser sidebar, Browser › Search… |
 | **Sound Volume** | One volume, speed and loudness setting for all card audio, adjustable while you study. | Tools › Learning Toolkit › Sound Volume…, `Ctrl+Alt+Up/Down/M` |
 | **Study Session Clock** | Status-bar clock with focused study time and a per-deck time dashboard. | Status bar, Tools › Learning Toolkit › Study Clock |
 
@@ -52,7 +52,7 @@ The original documentation of each part is kept in [`docs/legacy/`](docs/legacy/
 | ![Card Stage Shifter, Even mode](docs/screenshots/stage-shifter-even.png) | ![Preview of the moves](docs/screenshots/stage-shifter-preview.png) |
 | Card Stage Shifter – Even mode | The preview lists every move before anything changes |
 | ![Word search panel](docs/screenshots/search-word-panel.png) | ![Search dialog](docs/screenshots/search-dialog.png) |
-| Word search panel in the Browser | Search dialog – the Anki query is written for you |
+| Word search in light and dark mode | Search dialog – the Anki query is written for you |
 | ![Sound volume](docs/screenshots/sound-volume.png) | ![Change Deck with counts](docs/screenshots/change-deck-counts.png) |
 | Sound volume | Change Deck with counts per deck |
 

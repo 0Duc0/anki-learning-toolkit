@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from anki.utils import strip_html
 from aqt import gui_hooks, mw
 from aqt.browser import Browser
@@ -40,6 +42,7 @@ from ..common.config import SectionConfig
 from .core import (
     DEFAULT_MEANING_FIELDS,
     DEFAULT_WORD_FIELDS,
+    FIELD_AUTO,
     FIELD_MEANING,
     FIELD_WORD,
     MATCH_CONTAINS,
@@ -67,7 +70,7 @@ from .core import (
     recommended_fields,
     rewrite_search_bar,
 )
-from .panel import WordSearchPanel, focus_action, install_panel
+from .panel import HERE, KIND_WORD, WordSearchPanel, focus_action, install_panel
 
 _CFG = SectionConfig('search')
 
@@ -80,13 +83,17 @@ DEFAULTS = {
     "quick_combine": True,
     "last_field_choice": FIELD_WORD,
     "word_mode": WORD_CONTAINS,
-    "word_deck": "",
+    "word_kind": "auto",
+    "word_match": WORD_CONTAINS,
+    "word_scope": HERE,
+    "word_history": [],
+    "search_as_you_type": True,
     "word_cards": "",
     "word_panel_open": True,
     "word_search_shortcut": "Ctrl+Shift+W",
     "word_fields": list(DEFAULT_WORD_FIELDS),
     "meaning_fields": list(DEFAULT_MEANING_FIELDS),
-    "search_bar_field": "",
+    "search_bar_field": FIELD_AUTO,
     "remember_look_in": True,
 }
 _collection_epoch = 0
@@ -117,7 +124,7 @@ def _config() -> dict:
             config[key] = default
         elif isinstance(default, list):
             cleaned = [str(item).strip() for item in config[key] if str(item).strip()]
-            config[key] = cleaned or list(default)
+            config[key] = cleaned if (cleaned or not default) else list(default)
     return config
 
 
@@ -130,13 +137,60 @@ def _save_config(changes: dict) -> None:
         pass
 
 
-def _browser_deck(browser) -> str:
-    """The deck the Browser's current search is limited to ("" if none)."""
-    current = getattr(browser, "current_search", None)
+_DECK_CURRENT = re.compile(r'(?:^|[\s(])"?deck:current\b', re.IGNORECASE)
+
+
+def _current_deck_name() -> str:
+    col = getattr(mw, "col", None)
     try:
-        return deck_from_search(str(current()) if callable(current) else "")
+        deck = col.decks.current() if col is not None else None
+        name = str(deck["name"]) if deck else ""
+        return "" if name.casefold() == "default" and len(col.decks.all_names_and_ids()) > 1 else name
     except Exception:
         return ""
+
+
+def _deck_in_search(query: str) -> str | None:
+    """Deck a search is limited to: a name, the current deck for deck:current, None if it names no deck."""
+    if _DECK_CURRENT.search(query or ""):
+        return _current_deck_name()
+    deck = deck_from_search(query or "")
+    return deck or None
+
+
+def _browser_deck(browser) -> str:
+    """Where the user is: the deck the Browser shows (search, sidebar click, deck:current, main window)."""
+    here = getattr(browser, "_ssa_here", None)
+    if here is None:
+        current = getattr(browser, "current_search", None)
+        try:
+            here = _deck_in_search(str(current()) if callable(current) else "")
+        except Exception:
+            here = None
+        if here is None:
+            here = _current_deck_name()
+        try:
+            browser._ssa_here = here
+        except Exception:
+            pass
+    return here or ""
+
+
+def _browser_did_search(context) -> None:
+    """A search the user made (sidebar click, search bar): follow the deck it shows."""
+    try:
+        browser = getattr(context, "browser", None)
+        if browser is None or getattr(browser, "_ssa_last_own", None) == context.search:
+            return
+        deck = _deck_in_search(str(context.search))
+        if deck is None or deck == getattr(browser, "_ssa_here", None):
+            return
+        browser._ssa_here = deck
+        panel = getattr(browser, "_simple_search_word_panel", None)
+        if panel is not None and not sip.isdeleted(panel):
+            panel.location_changed()
+    except Exception:
+        return
 
 
 def _deck_recommendations(col, deck: str) -> tuple[str, ...]:
@@ -165,6 +219,19 @@ def _deck_recommendations_with_sort(col, deck: str) -> tuple[tuple[str, ...], se
         return recommended_fields(meta, deck), {name for _t, name in meta.sort_by_type}
     except Exception:
         return (), set()
+
+
+def _deck_field_names(col, deck: str) -> tuple[str, ...]:
+    """Field names of the note types used in a deck and its subdecks."""
+    try:
+        did = col.decks.id_for_name(deck)
+        if not did:
+            return ()
+        ids = ",".join(str(int(i)) for i in col.decks.deck_and_child_ids(did))
+        mids = col.db.list(f"select distinct n.mid from cards c join notes n on n.id = c.nid where c.did in ({ids})")
+        return tuple(f["name"] for m in mids if (model := col.models.get(m)) for f in model["flds"])
+    except Exception:
+        return ()
 
 
 def _word_fields() -> list[str]:
@@ -270,7 +337,7 @@ def _short(text: str, maximum: int = 28) -> str:
     return single_line[: maximum - 1] + "…"
 
 
-def _perform_search(browser: Browser, query: str) -> None:
+def _perform_search(browser: Browser, query: str, history: bool = True) -> None:
     """Save the editor, then run a normal native Browser search."""
     if not _browser_alive(browser):
         return
@@ -286,9 +353,10 @@ def _perform_search(browser: Browser, query: str) -> None:
                 # build_query() already returns a parser-safe query. Running it
                 # through build_search_string() again would double-escape regex
                 # literals such as '+' or '[' on Anki 25.09.x.
+                browser._ssa_last_own = query
                 search_for(query)
                 update_history = getattr(browser, "update_history", None)
-                if callable(update_history):
+                if history and callable(update_history):
                     update_history()
                 return
 
@@ -991,13 +1059,33 @@ def _deck_names() -> list[str]:
     return sorted(names, key=lambda name: [part.casefold() for part in name.split("::")])
 
 
-def _word_search(browser: Browser, search: WordSearch) -> str:
+def _word_search(browser: Browser, search: WordSearch, history: bool = True) -> str:
     col = _live_collection(browser)
     if col is None:
         raise RuntimeError("The Anki collection is currently unavailable.")
     query = build_word_query(col, search, _all_fields(col), _word_fields(), _meaning_fields())
-    _perform_search(browser, query)
+    _perform_search(browser, query, history=history)
     return query
+
+
+def _show_scope(browser: Browser, deck: str, card_filter: str = "") -> None:
+    """No word typed: show the whole deck (with the card filter)."""
+    col = _live_collection(browser)
+    if col is None:
+        return
+    try:
+        query = build_word_query(col, WordSearch(text="", deck=deck, card_filter=card_filter), ())
+    except ValueError:
+        query = "deck:*"
+    _perform_search(browser, query, history=False)
+
+
+def _result_count(browser: Browser) -> int | None:
+    try:
+        length = getattr(getattr(browser, "table", None), "len", None)
+        return int(length()) if callable(length) else None
+    except Exception:
+        return None
 
 
 def _setup_word_panel(browser: Browser) -> None:
@@ -1005,9 +1093,12 @@ def _setup_word_panel(browser: Browser) -> None:
     panel = WordSearchPanel(
         browser,
         decks=_deck_names,
-        run=lambda search: _word_search(browser, search),
+        run=lambda search: _word_search(browser, search, history=False),
         config=config,
         save=_save_config,
+        here=lambda: _browser_deck(browser),
+        count=lambda: _result_count(browser),
+        show_scope=lambda deck: _show_scope(browser, deck, str(panel.card_combo.currentData() or "")),
     )
     if not install_panel(browser, panel):
         panel.deleteLater()
@@ -1021,12 +1112,29 @@ def _setup_word_panel(browser: Browser) -> None:
     browser._simple_search_word_action = action
 
 
+def _follow_selected_note(browser: Browser) -> None:
+    """Right-click search on a note outside where you are: search in that note's language deck instead."""
+    col = _live_collection(browser)
+    here = _browser_deck(browser)
+    try:
+        nids = list(browser.selected_notes())
+        did = col.db.scalar(f"select did from cards where nid = {int(nids[0])} limit 1") if col and nids else None
+        name = col.decks.name(did) if did else ""
+    except Exception:
+        return
+    if not name or not here or name == here or name.startswith(here + "::"):
+        return
+    browser._ssa_here = "::".join(name.split("::")[:2])
+
+
 def _word_from_context(browser: Browser, text: str, mode: str) -> None:
     panel = getattr(browser, "_simple_search_word_panel", None)
     try:
         if panel is not None:
+            _follow_selected_note(browser)
             panel.edit.setText(text)
-            panel.buttons[mode].click()
+            panel.set_kind(KIND_WORD)
+            panel.set_match(mode)
             return
         _word_search(browser, WordSearch(text=text, mode=mode))
     except Exception as error:
@@ -1043,6 +1151,8 @@ _BAR_STYLE = (
 def _bar_label(choice: str) -> str:
     if not choice:
         return "all fields"
+    if choice == FIELD_AUTO:
+        return "Auto"
     if choice == FIELD_WORD:
         return "the word"
     if choice == FIELD_MEANING:
@@ -1056,7 +1166,8 @@ def _refresh_bar_button(button: QToolButton) -> None:
     button.setProperty("active", bool(choice))
     button.setToolTip(
         "What plain words typed in the search bar look in.\n"
-        + (f"Now: only {_bar_label(choice)} (contains the word)." if choice
+        + ("Now: Auto – characters search the word, Latin text the word and its meaning." if choice == FIELD_AUTO
+           else f"Now: only {_bar_label(choice)} (contains the word)." if choice
            else "Now: all fields – Anki's normal search.")
         + "\nSearches with Anki syntax (deck:, Simplified:…, OR, -, *) always work as usual."
     )
@@ -1086,9 +1197,10 @@ def _fill_search_bar_menu(menu: QMenu, browser: Browser, button: QToolButton) ->
     fields = _all_fields(col) if col is not None else ()
     word = pick_fields(fields, _word_fields())
     meaning = pick_fields(fields, _meaning_fields())
-    choices = [("All fields (Anki's normal search)", "")]
-    choices.append(("The word itself – " + ", ".join(word[:4]) + (" …" if len(word) > 4 else ""), FIELD_WORD))
-    choices.append(("Meaning / translation – " + ", ".join(meaning[:3]) + (" …" if len(meaning) > 3 else ""), FIELD_MEANING))
+    choices = [("Auto – the word, or its meaning for Latin text", FIELD_AUTO),
+               ("All fields (Anki's normal search)", "")]
+    choices.append(("The word itself – " + ", ".join(word[:3]) + (" …" if len(word) > 3 else ""), FIELD_WORD))
+    choices.append(("Meaning – " + ", ".join(meaning[:2]) + (" …" if len(meaning) > 2 else ""), FIELD_MEANING))
 
     def add(text: str, value: str, target: QMenu) -> None:
         action = target.addAction(text)
@@ -1106,13 +1218,15 @@ def _fill_search_bar_menu(menu: QMenu, browser: Browser, button: QToolButton) ->
         menu.addSeparator()
     for text, value in choices:
         add(text, value, menu)
-    if word:
+    here_fields = set(_deck_field_names(col, deck)) if deck else set()
+    shown = [w for w in word if not here_fields or w in here_fields]
+    if shown:
         menu.addSeparator()
         one = menu.addAction("Only one field:")
         one.setEnabled(False)
-        for name in word:
+        for name in shown:
             add(name, name, menu)
-    others = [f for f in fields if f not in word]
+    others = [f for f in fields if f not in shown]
     if others:
         sub = menu.addMenu("Other fields")
         if sub is not None:
@@ -1261,6 +1375,7 @@ def _default_field_search(context) -> None:
 
 
 gui_hooks.browser_will_search.append(_default_field_search)
+gui_hooks.browser_did_search.append(_browser_did_search)
 gui_hooks.browser_menus_did_init.append(_setup_browser)
 gui_hooks.browser_will_show_context_menu.append(_add_context_menu)
 for _hook_name in ("profile_will_close", "collection_will_temporarily_close"):

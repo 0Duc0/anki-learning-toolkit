@@ -76,6 +76,24 @@ regs = [dict(text="你", field_name="Simplified"), dict(text="a+b [x]", match="c
 for r in regs:
     a = core.build_query(col, core.SearchSpec(**r), fields); b = old.build_query(col, old.SearchSpec(**r), fields)
     check(f"unchanged vs 2.0.1 {r}", a == b, f"{a} != {b}")
+
+# ---- 4.0 Auto: characters search the word, Latin text the word or its meaning
+def aq(text, match="contains", deck=""):
+    return core.build_word_query(col, W(text, "auto", deck, "", match), meta.fields)
+for text, match, want in [
+    ("你", "contains", ["nihao", "ni", "nimen"]),
+    ("你", "exact", ["ni"]),
+    ("eat", "contains", ["an", "chi", "taberu"]),       # meaning, whole words, no examples
+    ("cứ", "contains", ["cu", "cuviec"]),               # Vietnamese word (whole syllables)
+    ("ăn", "exact", ["an"]),
+]:
+    got = found(aq(text, match))
+    check(f"auto {text!r} {match}", got == sorted(want), f"{got} != {sorted(want)}")
+for text, want in [("你", ["ni", "nihao", "nimen"]), ("eat", ["an", "chi", "taberu"]), ("cứ", ["cu", "cuviec"])]:
+    q = core.rewrite_search_bar(col, text, core.FIELD_AUTO, meta.fields)
+    check(f"search bar Auto {text!r}", q is not None and found(q) == sorted(want), (q, found(q) if q else None))
+check("search bar Auto leaves Anki syntax alone", core.rewrite_search_bar(col, "deck:Heisig 好", core.FIELD_AUTO, meta.fields) is None)
+
 if __name__ == "__main__":
     print("\nRESULT:", "ALL PASSED" if not FAILS else f"{len(FAILS)} FAILED")
     sys.exit(1 if FAILS else 0)

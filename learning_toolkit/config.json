@@ -41,7 +41,10 @@
     "quick_combine": true,
     "last_field_choice": "@word",
     "word_mode": "contains",
-    "word_deck": "",
+    "word_kind": "auto",
+    "word_match": "contains",
+    "word_scope": "@here",
+    "search_as_you_type": true,
     "word_cards": "",
     "word_panel_open": true,
     "word_search_shortcut": "Ctrl+Shift+W",
@@ -70,7 +73,7 @@
       "Meaning",
       "Back"
     ],
-    "search_bar_field": "",
+    "search_bar_field": "@auto",
     "remember_look_in": true
   },
   "sound": {

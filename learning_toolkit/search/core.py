@@ -353,10 +353,12 @@ DEFAULT_MEANING_FIELDS: tuple[str, ...] = (
 
 FIELD_WORD = "@word"
 FIELD_MEANING = "@meaning"
+FIELD_AUTO = "@auto"   # word fields for characters, word or meaning for Latin text
 MATCH_CONTAINS_WORD = "contains_word"
 MATCH_RELATED = "related"
 VALID_MATCHES.update({MATCH_CONTAINS_WORD, MATCH_RELATED})
 
+WORD_AUTO = "auto"
 WORD_EXACT = "exact"
 WORD_CONTAINS = "contains"
 WORD_RELATED = "related"
@@ -390,7 +392,9 @@ WORD_MODES: tuple[tuple[str, str, str], ...] = (
         "but also unrelated notes",
     ),
 )
-WORD_MODE_KEYS = {key for key, _label, _tip in WORD_MODES}
+WORD_MODE_KEYS = {key for key, _label, _tip in WORD_MODES} | {WORD_AUTO}
+WORD_MATCHES = (WORD_EXACT, WORD_CONTAINS, WORD_RELATED)
+_WORD_MATCH = {WORD_EXACT: MATCH_EXACT, WORD_CONTAINS: MATCH_CONTAINS_WORD, WORD_RELATED: MATCH_RELATED}
 
 _CJK_RE = re.compile(
     "[⺀-⿟々぀-ヿ㐀-䶿一-鿿"
@@ -491,6 +495,12 @@ class WordSearch:
     mode: str = WORD_CONTAINS
     deck: str = ""  # "" = all decks, "current" = current deck, else a deck name
     card_filter: str = ""
+    match: str = WORD_CONTAINS  # how the word fields match in auto mode
+
+
+def auto_targets(text: str) -> str:
+    """What auto mode searches: "word" for characters/kana, "word_or_meaning" for Latin text."""
+    return "word" if is_cjk_text(text) else "word_or_meaning"
 
 
 def build_word_query(
@@ -509,16 +519,23 @@ def build_word_query(
     if text:
         if search.mode == WORD_EVERYWHERE:
             terms.append(_or_terms(col, available, text, MATCH_CONTAINS))
+        elif search.mode == WORD_AUTO:
+            match = _WORD_MATCH.get(search.match, MATCH_CONTAINS_WORD)
+            words = pick_fields(available, word_fields)
+            if auto_targets(text) == "word":
+                terms.append(_or_terms(col, words, text, match))
+            else:
+                parts = [_text_term(col, f, text, match) for f in words]
+                parts += [_text_term(col, f, text, MATCH_CONTAINS_WORD) for f in pick_fields(available, meaning_fields)]
+                if not parts:
+                    raise ValueError("None of the chosen fields exist in this collection.")
+                terms.append(parts[0] if len(parts) == 1 else "(" + " OR ".join(parts) + ")")
         elif search.mode == WORD_MEANING:
             fields = pick_fields(available, meaning_fields)
             terms.append(_or_terms(col, fields, text, MATCH_CONTAINS_WORD))
         else:
             fields = pick_fields(available, word_fields)
-            match = {
-                WORD_EXACT: MATCH_EXACT,
-                WORD_CONTAINS: MATCH_CONTAINS_WORD,
-                WORD_RELATED: MATCH_RELATED,
-            }[search.mode]
+            match = _WORD_MATCH[search.mode]
             terms.append(_or_terms(col, fields, text, match))
     nodes: list[SearchNode] = []
     if search.deck:
@@ -581,6 +598,12 @@ def rewrite_search_bar(
     text = plain_search_text(query)
     if text is None or not field_choice:
         return None
+    if field_choice == FIELD_AUTO:
+        words = pick_fields(_deduplicated(available_fields), word_fields)
+        if auto_targets(text) == "word":
+            return _or_terms(col, words, text, MATCH_CONTAINS_WORD) if words else None
+        both = list(words) + [f for f in pick_fields(_deduplicated(available_fields), meaning_fields) if f not in words]
+        return _or_terms(col, both, text, MATCH_CONTAINS_WORD) if both else None
     fields = resolve_field_choice(field_choice, available_fields, word_fields, meaning_fields)
     if not fields:
         return None
