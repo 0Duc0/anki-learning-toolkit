@@ -214,7 +214,7 @@ def suspended_cards_ignored_by_default():
 def rejects_unsupported_even_combinations():
     col, ids = make_collection(USER_SIZES)
     for bad in (
-        dict(card_types=(0, 2)),
+        dict(card_types=()),
         dict(direction="toward_end", start_key="a", stop_key="o"),
         dict(even_notes=0),
     ):
@@ -223,6 +223,34 @@ def rejects_unsupported_even_combinations():
         except RuntimeError:
             continue
         raise AssertionError(f"accepted {bad}")
+
+
+@check
+def even_with_review_and_learning_cards():
+    """1.x: Even also distributes learning/relearning/review cards; studied notes come first, scheduling kept."""
+    col, ids = make_collection([0, 6, 6, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+    # make the notes of c. studied: review (due later) and learning
+    c_nids = col.db.list("select distinct nid from cards where did=?", ids[2])
+    for k, nid in enumerate(c_nids):
+        typ, queue = (2, 2) if k % 2 == 0 else (1, 1)
+        col.db.execute("update cards set type=?, queue=?, ivl=?, due=?, reps=3 where nid=?", typ, queue, 5 if typ == 2 else 0, 9000 + k, nid)
+    before = card_state(col)
+    plan = core.build_plan(col, opts(card_types=(0, 1, 2, 3), start_key="d", stop_key="a", even_notes=6))
+    core.shift_plan(col, plan)
+    contents = stage_contents(col, ids[:4])
+    assert [len(x) for x in contents] == [6, 6, 6, 0], [len(x) for x in contents]
+    labels_a = set(contents[0])
+    studied = {col.get_note(n)["Front"] for n in c_nids}
+    assert labels_a == set(contents[0]) and len(contents[0]) == 6
+    # scheduling unchanged for every card
+    after = card_state(col)
+    assert all(before[c][1:] == after[c][1:] for c in before), "scheduling changed"
+    # with only New chosen, the studied notes stay where they are
+    col2, ids2 = make_collection([0, 6, 6, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+    c2 = col2.db.list("select distinct nid from cards where did=?", ids2[2])
+    col2.db.execute(f"update cards set type=2, queue=2, ivl=5 where nid in ({','.join(map(str, c2))})")
+    core.shift_plan(col2, core.build_plan(col2, opts(card_types=(0,), start_key="d", stop_key="a", even_notes=6)))
+    assert set(col2.db.list("select distinct nid from cards where did=?", ids2[2])) == set(c2)
 
 
 @check

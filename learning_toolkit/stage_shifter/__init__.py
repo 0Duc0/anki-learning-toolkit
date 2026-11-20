@@ -194,7 +194,9 @@ def _dialog_style(widget: QWidget) -> str:
     text = palette.color(QPalette.ColorRole.WindowText)
     base = palette.color(QPalette.ColorRole.Base)
     alternate = palette.color(QPalette.ColorRole.AlternateBase)
-    muted = palette.color(QPalette.ColorRole.PlaceholderText)
+    # Hints use the normal text colour at reduced strength: PlaceholderText was too dark on dark themes.
+    muted = palette.color(QPalette.ColorRole.WindowText)
+    muted.setAlpha(205)
     border = palette.color(QPalette.ColorRole.Mid)
     accent = palette.color(QPalette.ColorRole.Highlight)
     button = palette.color(QPalette.ColorRole.Button)
@@ -204,7 +206,7 @@ def _dialog_style(widget: QWidget) -> str:
             background: {_rgba(window, 255)};
             color: {_rgba(text, 255)};
         }}
-        QLabel#dialogSubtitle, QLabel#sectionHint {{ color: {_rgba(muted, 255)}; }}
+        QLabel#dialogSubtitle, QLabel#sectionHint {{ color: {_rgba(muted, 205)}; }}
         QLabel#routeSummary, QLabel#safetyNote {{
             background: {_rgba(accent, 20)};
             border-left: 3px solid {_rgba(accent, 190)};
@@ -241,7 +243,7 @@ def _dialog_style(widget: QWidget) -> str:
         }}
         QComboBox:disabled, QSpinBox:disabled {{
             background: transparent;
-            color: {_rgba(muted, 255)};
+            color: {_rgba(muted, 205)};
             border: 1px dashed {_rgba(border, 90)};
         }}
         QTableWidget {{
@@ -254,7 +256,7 @@ def _dialog_style(widget: QWidget) -> str:
         QTableWidget::item {{ padding: 7px 8px; }}
         QHeaderView::section {{
             background: {_rgba(alternate, 220)};
-            color: {_rgba(muted, 255)};
+            color: {_rgba(muted, 205)};
             border: none;
             border-bottom: 1px solid {_rgba(border, 90)};
             padding: 8px;
@@ -356,7 +358,7 @@ def _route_description(
         first = group.stages[stop].label
         last = group.stages[start].label
         return (
-            f"Even: the not-started notes in {first} … {last} keep their order and are "
+            f"Even: the matching notes in {first} … {last} keep their order and are "
             f"refilled to {even_notes} notes per stage. {first} gets the first "
             f"{even_notes}, the next stage the following {even_notes}, and so on; the "
             "last block holds the remainder."
@@ -645,26 +647,32 @@ def _show_options(
     even_row.addStretch(1)
     selection_layout.addLayout(even_row)
     even_hint = QLabel(
-        "Even keeps the queue order (stage by stage, then position) and cuts it into "
-        "blocks: the endpoint stage gets the first block, the next stage the second, "
-        "and so on. It works with New cards toward a. and replaces the per-stage limit."
+        "Even keeps the order (stage by stage; inside a stage, notes you are already "
+        "learning or reviewing first, then new notes by position) and cuts it into blocks: "
+        "the endpoint stage gets the first block, the next stage the second, and so on. "
+        "It moves toward a., uses the card states chosen below and replaces the per-stage limit."
     )
     even_hint.setObjectName("sectionHint")
     even_hint.setWordWrap(True)
     selection_layout.addWidget(even_hint)
     states_hint = QLabel(
-        "New-only is the safest default. Learning and review cards keep their "
-        "complete scheduling history if selected."
+        "<b>New</b> – never studied · <b>Learning / Relearning</b> – in the first learning steps, "
+        "or a review card you forgot and are learning again · <b>Review</b> – learned, comes back "
+        "at growing intervals · <b>Suspended</b> – kept out of study until you unsuspend it.<br>"
+        "Moving a card only changes its deck: due dates, intervals and review history stay as they are."
     )
     states_hint.setObjectName("sectionHint")
     states_hint.setWordWrap(True)
     selection_layout.addWidget(states_hint)
     states_layout = QHBoxLayout()
     include_new = QCheckBox("New")
+    include_new.setToolTip("Cards you have never studied")
     include_new.setChecked(bool(config["include_new"]))
     include_learning = QCheckBox("Learning / Relearning")
+    include_learning.setToolTip("Cards in their learning steps, and review cards you forgot (relearning)")
     include_learning.setChecked(bool(config["include_learning"]))
     include_review = QCheckBox("Review")
+    include_review.setToolTip("Learned cards that come back at growing intervals")
     include_review.setChecked(bool(config["include_review"]))
     states_layout.addWidget(include_new)
     states_layout.addWidget(include_learning)
@@ -791,15 +799,11 @@ def _show_options(
     def apply_even_state(user_changed: bool = False) -> None:
         even = even_check.isChecked()
         if even:
-            include_new.setChecked(True)
-            include_learning.setChecked(False)
-            include_review.setChecked(False)
             if direction_combo.currentData() != "toward_a":
                 direction_combo.setCurrentIndex(max(0, direction_combo.findData("toward_a")))
             if user_changed and start_combo.count():
                 start_combo.setCurrentIndex(start_combo.count() - 1)
-        for widget in (include_new, include_learning, include_review, direction_combo):
-            widget.setEnabled(not even)
+        direction_combo.setEnabled(not even)
         for widget in (limit_unit, maximum):
             widget.setEnabled(not even)
         even_spin.setEnabled(even)

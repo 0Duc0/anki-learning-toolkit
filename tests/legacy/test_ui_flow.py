@@ -151,11 +151,11 @@ check(state["even_checked"] is False and state["new_enabled"], "A: Even is off b
 def setup_b(dlg):
     find_check(dlg, "Even").setChecked(True)
     QApplication.processEvents()
-    state["locked"] = not find_check(dlg, "New").isEnabled() and not find_check(dlg, "Review").isEnabled()
+    state["locked"] = find_check(dlg, "New").isEnabled() and find_check(dlg, "Review").isEnabled()
     state["summary"] = next(l.text() for l in dlg.findChildren(QLabel) if l.objectName() == "routeSummary")
 before = sizes()
 open_dialog("B_even", setup_b, accept=True)
-check(state["locked"], "B: ticking Even locks the card-state controls")
+check(state["locked"], "B: with Even the card states stay choosable")
 check("refilled to 20 notes per stage" in state["summary"], f"B: route summary explains Even: {state['summary'][:90]}...")
 after = sizes()
 check(after == [20] * 10 + [6] + [0] * 4, f"B: full flow moved the queue into blocks of 20: {after}")

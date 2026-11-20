@@ -31,7 +31,7 @@ empty. Short stages are topped up from the ones behind them and over-full stages
 hand their extras on, so the order never changes. A note can move more than one
 stage when several stages are short. Running Even again moves nothing.
 
-Even works with New cards, toward `a.`, and replaces the per-stage limit. All
+Even works toward `a.` with the card states you choose (New, Learning/Relearning, Review, optionally suspended) and replaces the per-stage limit. All
 cards of a note move together. A note whose New cards sit in more than one stage
 is left where it is and listed in the preview. If the chosen stages hold more
 notes than they have room for, the last stage keeps the extra and the preview

@@ -249,8 +249,6 @@ def _validate_options(group: StageGroup, options: ShiftOptions) -> tuple[int, in
     if options.even:
         if options.direction != "toward_a":
             raise RuntimeError("Even mode only works toward a. (earlier stage).")
-        if set(options.card_types) != {int(CARD_TYPE_NEW)}:
-            raise RuntimeError("Even mode works with New cards only.")
         if not 1 <= options.even_notes <= 10000:
             raise RuntimeError("Even mode needs 1 to 10,000 notes per stage.")
     keys = [stage.key for stage in group.stages]
@@ -322,19 +320,26 @@ def build_plan(col: Collection, options: ShiftOptions) -> ShiftPlan:
 
 
 def _eligible_sql(options: ShiftOptions) -> str:
-    return "type=? AND odid=0" + ("" if options.include_suspended else " AND queue != -1")
+    """Cards Even mode may move: the chosen states, not in a filtered deck (suspended if chosen)."""
+    types = ",".join(str(int(t)) for t in sorted(set(options.card_types)))
+    return f"type IN ({types}) AND odid=0" + ("" if options.include_suspended else " AND queue != -1")
+
+
+# Even order inside a stage: notes already being studied first (learning, relearning, then review),
+# then new notes in queue position. Due dates mean different things per state, so they are only
+# compared within a state.
+_EVEN_STATE_ORDER = "CASE type WHEN 1 THEN 0 WHEN 3 THEN 0 WHEN 2 THEN 1 ELSE 2 END"
 
 
 def _stage_note_counts(
     col: Collection, group: StageGroup, options: ShiftOptions, start: int, stop: int
 ) -> list[int]:
-    """Notes with at least one eligible (New) card, per stage from the endpoint on."""
+    """Notes with at least one eligible card, per stage from the endpoint on."""
     return [
         int(
             col.db.scalar(
                 f"SELECT COUNT(DISTINCT nid) FROM cards WHERE did=? AND {_eligible_sql(options)}",
                 group.stages[index].deck_id,
-                int(CARD_TYPE_NEW),
             )
             or 0
         )
@@ -362,9 +367,9 @@ def _build_even_plan(
     stages_of_note: dict[int, set[int]] = {}
     for index in indexes:
         rows = col.db.all(
-            f"SELECT id, nid FROM cards WHERE did=? AND {_eligible_sql(options)} ORDER BY due, id",
+            f"SELECT id, nid FROM cards WHERE did=? AND {_eligible_sql(options)} "
+            f"ORDER BY {_EVEN_STATE_ORDER}, due, id",
             group.stages[index].deck_id,
-            int(CARD_TYPE_NEW),
         )
         notes: dict[int, list[int]] = {}
         for card_id, note_id in rows:
