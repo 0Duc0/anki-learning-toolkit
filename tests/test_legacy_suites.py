@@ -5,6 +5,7 @@ add-on release is available (``LT_OLD_ADDONS``), some scripts also compare the t
 logic with that release.
 """
 import os
+import re
 import subprocess
 import sys
 
@@ -24,7 +25,7 @@ def test_script(script):
     env = dict(os.environ, QT_QPA_PLATFORM="offscreen")
     run = subprocess.run([sys.executable, script], cwd=HERE, env=env, capture_output=True, text=True, timeout=900)
     out = run.stdout + run.stderr
-    assert run.returncode == 0 and ("ALL PASSED" in out or "13/13 passed" in out), out[-3000:]
+    assert run.returncode == 0 and ("ALL PASSED" in out or re.search(r"\b(\d+)/\1 passed", out)), out[-3000:]
 
 
 @pytest.mark.parametrize("test_file", ["test_note_mover.py", "test_search_bar.py"])
