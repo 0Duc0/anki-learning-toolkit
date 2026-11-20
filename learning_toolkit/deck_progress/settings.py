@@ -363,15 +363,18 @@ class SettingsDialog(QDialog):
         self.show_left = QCheckBox("Show what's left (e.g. \u201c1,995 notes left\u201d)")
         self.show_left.setToolTip("Goal total minus what the counter counts, so it follows the counter's card states.")
         details.addWidget(self.show_left)
-        explain = QLabel(
-            "<b>At my pace</b> uses how many new notes (or cards) you start on days you study, recent days "
-            "counting more. Days off and long breaks don't pull the pace down. If you studied on fewer than "
-            "5 days in the last 4 weeks, your last study days are used and the date assumes you study daily.<br>"
-            "<b>Left</b> is the goal total (or all notes of the counter decks) minus what the counter counts, so it "
-            "follows the counter's card states (e.g. mature only). The estimate is left ÷ pace."
-        )
-        explain.setWordWrap(True)
-        details.addWidget(explain)
+        self.time_unit = QComboBox()
+        self.time_unit.addItem("Months", "months")
+        self.time_unit.addItem("Days", "days")
+        self.time_unit.setToolTip("Months: e.g. \u201cabout 4 months\u201d (weeks or years when shorter or longer). "
+                                  "Days: e.g. \u201cabout 118 days\u201d.")
+        estimate_form.addRow("Time shown in", self.time_unit)
+        self.show_date = QCheckBox("Show finish date")
+        estimate_form.addRow("", self.show_date)
+        how = QLabel('<a href="https://github.com/0Duc0/anki-learning-toolkit/blob/main/docs/deck-progress-estimate.md">'
+                     'How the estimate is calculated</a>')
+        how.setOpenExternalLinks(True)
+        details.addWidget(how)
         details.addStretch()
         self.tabs.addTab(counter_tab, "Counter")
         self.tabs.addTab(progress_tab, "Progress")
@@ -403,6 +406,8 @@ class SettingsDialog(QDialog):
             qconnect(box.toggled, self._edited)
         qconnect(self.estimate.currentIndexChanged, self._estimate_changed)
         qconnect(self.per_day.valueChanged, self._edited)
+        qconnect(self.time_unit.currentIndexChanged, self._edited)
+        qconnect(self.show_date.toggled, self._edited)
         index = next((i for i, row in enumerate(self.rows) if row.id == focus), 0)
         self._rebuild(index)
         if not self.rows:
@@ -426,10 +431,15 @@ class SettingsDialog(QDialog):
             show_left=self.show_left.isChecked(),
             estimate=self.estimate.currentData(),
             per_day=self.per_day.value(),
+            time_unit=self.time_unit.currentData(),
+            show_date=self.show_date.isChecked(),
         )
 
     def _estimate_changed(self, *_args):
+        on = self.estimate.currentData() != "off"
         self.per_day.setEnabled(self.estimate.currentData() == "fixed")
+        self.time_unit.setEnabled(on)
+        self.show_date.setEnabled(on)
         self._edited()
 
     def _rename_states(self):
@@ -505,6 +515,10 @@ class SettingsDialog(QDialog):
             self.estimate.setCurrentIndex(max(0, self.estimate.findData(row.estimate)))
             self.per_day.setValue(row.per_day)
             self.per_day.setEnabled(row.estimate == "fixed")
+            self.time_unit.setCurrentIndex(max(0, self.time_unit.findData(row.time_unit)))
+            self.show_date.setChecked(row.show_date)
+            self.time_unit.setEnabled(row.estimate != "off")
+            self.show_date.setEnabled(row.estimate != "off")
         self._loading = False
 
     def _add(self):

@@ -1,5 +1,12 @@
 # Changelog
 
+## Learning Toolkit 1.4.0 – 2026-11-20
+
+- **Deck Progress 1.7.0**
+  - Choose whether the time to finish is shown in months or in days.
+  - The finish date can be turned off.
+  - The settings link to [the formulas](deck-progress-estimate.md) instead of explaining them in text.
+
 ## Learning Toolkit 1.3.0 – 2026-11-20
 
 - **Deck Progress 1.6.0**

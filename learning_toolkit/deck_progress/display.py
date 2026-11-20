@@ -68,7 +68,9 @@ def _states_html(options: Options, states: StateCounts, cards: bool, notes: bool
     return "".join(rows)
 
 
-def _span(days: int) -> str:
+def _span(days: int, unit: str = "months") -> str:
+    if unit == "days":
+        return "about 1 day" if days <= 1 else f"about {days:,} days"
     if days <= 1:
         return "about a day"
     if days < 14:
@@ -81,7 +83,8 @@ def _span(days: int) -> str:
 
 
 def _estimate_html(estimate: Estimate | None, note: str, today: date | None = None,
-                   left: int | None = None, left_unit: str = "notes") -> str:
+                   left: int | None = None, left_unit: str = "notes",
+                   time_unit: str = "months", show_date: bool = True) -> str:
     """The finish line. "N left" is shown only when asked for (left is not None)."""
     left_text = f"{left:,} {left_unit} left" if left is not None else ""
     if estimate is None:
@@ -93,13 +96,15 @@ def _estimate_html(estimate: Estimate | None, note: str, today: date | None = No
     when = f"{finish.day} {finish.strftime('%b')}" + (f" {finish.year}" if finish.year != (today or date.today()).year else "")
     per = f"{estimate.per_day:.0f}" if estimate.per_day >= 10 else f"{estimate.per_day:.1f}".rstrip("0").rstrip(".")
     if estimate.mode == "fixed":
-        line = f"At {per}/day: {_span(estimate.calendar_days)} (≈ {when})"
+        line = f"At {per}/day: {_span(estimate.calendar_days, time_unit)}"
         tip = f"Fixed pace: {per} {estimate.unit} per day."
     else:
-        line = f"At your pace: {_span(estimate.calendar_days)} (≈ {when})"
+        line = f"At your pace: {_span(estimate.calendar_days, time_unit)}"
         tip = (f"Your pace: about {per} new {estimate.unit} per study day, from {estimate.basis} "
                f"(recent days weigh more). {estimate.study_days} study days still needed. "
                f"Days without new {estimate.unit} don't lower the pace.")
+    if show_date:
+        line += f" (≈ {when})"
     tip += f" Left: {estimate.remaining:,} {estimate.unit} (goal minus what the counter counts)."
     if left_text:
         line = left_text + " · " + line[0].lower() + line[1:]
@@ -193,7 +198,8 @@ def panel_html(options: Options, snapshot: Snapshot | None, *, updating=False, e
         if (counter.estimate != "off" or counter.show_left) and not result.problems:
             left = result.left if counter.show_left else None
             extra += _estimate_html(result.estimate if counter.estimate != "off" else None,
-                                    result.estimate_note, left=left, left_unit=result.left_unit)
+                                    result.estimate_note, left=left, left_unit=result.left_unit,
+                                    time_unit=counter.time_unit, show_date=counter.show_date)
         warning = '<span class="dp-warning">Check deck selection</span>' if result.problems else ""
         tiles.append(
             f'<button type="button" class="dp-counter" data-dp-edit="{key}" title="{title}">'

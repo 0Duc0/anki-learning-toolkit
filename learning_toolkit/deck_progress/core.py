@@ -31,6 +31,7 @@ CARD_STATES = {
 SHOWN_STATES = ("new", "learning", "relearning", "review", "suspended")
 STATE_LABELS = {"new": "New", "learning": "Learning", "relearning": "Relearning", "review": "Review",
                 "suspended": "Suspended"}
+TIME_UNITS = ("months", "days")
 ESTIMATES = ("off", "pace", "fixed")
 MAX_PER_DAY = 10000
 PACE_WINDOW_DAYS = 28        # "recent" study days
@@ -72,6 +73,8 @@ class Counter:
     show_left: bool = False         # "N notes left" (goal total minus what the counter counts)
     estimate: str = "off"           # off | pace | fixed
     per_day: int = 20               # fixed pace (notes or cards per day)
+    time_unit: str = "months"       # months | days  (how the time to finish is written)
+    show_date: bool = True          # show the finish date after the time
 
 
 @dataclass(frozen=True)
@@ -236,6 +239,8 @@ def parse_options(raw: Any) -> Options:
             show_left=_bool(item, "show_left", False),
             estimate=item.get("estimate") if item.get("estimate") in ESTIMATES else "off",
             per_day=_per_day(item.get("per_day")),
+            time_unit=item.get("time_unit") if item.get("time_unit") in TIME_UNITS else "months",
+            show_date=_bool(item, "show_date", True),
         ))
     labels = raw.get("state_labels")
     labels = {k: _label(v) for k, v in labels.items() if k in STATE_LABELS and _label(v)} if isinstance(labels, dict) else {}

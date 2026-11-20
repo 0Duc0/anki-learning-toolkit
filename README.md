@@ -11,7 +11,7 @@ menu, one settings file and one place to switch parts on and off.
 | **Quick Note Mover** | Moves the selected notes to the current deck or to a saved target deck with one click or a shortcut. | Browser › Notes › Quick Note Move |
 | **Change Deck counts** | Adds “Change Deck…” to the Browser's right-click menu and shows New / Learn / Due and note counts per deck in that dialog. | Browser right-click menu |
 | **Words Left** | Adds a “Words left” column to the deck list: notes you have not started yet. | Deck list |
-| **Deck Progress** | Named counters below the deck list: studied words, goal and progress bar, optional card states (New, Learning, Review …) and an estimate of when you will be done. | Tools › Learning Toolkit › Deck Progress… |
+| **Deck Progress** | Named counters below the deck list: studied words, goal and progress bar, optional card and note states (New, Learning, Review …) and an estimate of when you will be done ([formulas](docs/deck-progress-estimate.md)). | Tools › Learning Toolkit › Deck Progress… |
 | **Search Assistant** | Word search in the Browser sidebar: results appear while you type, *Auto* picks the right fields (characters → the word, Latin text → word or meaning), and it searches the deck you are in. The normal search bar can use the same Auto mode. Read-only. | Browser sidebar, Browser › Search… |
 | **Sound Volume** | One volume, speed and loudness setting for all card audio, adjustable while you study. | Tools › Learning Toolkit › Sound Volume…, `Ctrl+Alt+Up/Down/M` |
 | **Study Session Clock** | Status-bar clock with focused study time and a per-deck time dashboard. | Status bar, Tools › Learning Toolkit › Study Clock |
@@ -24,7 +24,7 @@ menu, one settings file and one place to switch parts on and off.
 
 Requires Anki 25.02 or newer.
 
-**Only want one part?** Every part is also released on its own (e.g. `deck_progress-1.6.0.ankiaddon`), and
+**Only want one part?** Every part is also released on its own (e.g. `deck_progress-1.7.0.ankiaddon`), and
 older versions stay downloadable. How versions, upgrading and downgrading work: [docs/versions.md](docs/versions.md).
 What changed: [docs/changelog.md](docs/changelog.md).
 

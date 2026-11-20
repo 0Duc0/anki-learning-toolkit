@@ -104,9 +104,12 @@ def test_estimate_pace_and_fixed(col):
     est = snap.results[0].estimate
     assert (est.remaining, est.calendar_days) == (25, 3)
     html = display._estimate_html(est, "", today=date(2026, 11, 20))
-    assert "left" not in html.split("title=")[0] and "At 10/day" in html and "23 Nov" in html
+    assert "left" not in html.rsplit('">', 1)[1] and "At 10/day" in html and "23 Nov" in html
     html = display._estimate_html(est, "", today=date(2026, 11, 20), left=25)
     assert "25 notes left · at 10/day" in html
+    html = display._estimate_html(est, "", today=date(2026, 11, 20), time_unit="days", show_date=False)
+    assert "At 10/day: about 3 days<" in html and "Nov" not in html.rsplit('">', 1)[1]
+    assert display._span(118) == "about 4 months" and display._span(118, "days") == "about 118 days"
 
 
 def test_left_follows_the_counter_states_and_goal(col):
@@ -148,15 +151,18 @@ def test_no_history_gives_a_hint(col):
 
 def test_settings_round_trip():
     raw = {"counters": [{"id": "a", "name": "JP", "decks": [{"id": 5, "name": "X"}], "show_states": True,
-                         "show_note_states": True, "show_left": True, "estimate": "fixed", "per_day": 25}], "state_labels": {"new": "Neu", "bogus": "x"}}
+                         "show_note_states": True, "show_left": True, "estimate": "fixed", "per_day": 25,
+                         "time_unit": "days", "show_date": False}], "state_labels": {"new": "Neu", "bogus": "x"}}
     opts = core.parse_options(raw)
     c0 = opts.counters[0]
     assert c0.show_states and c0.show_note_states and c0.show_left and c0.estimate == "fixed" and c0.per_day == 25
+    assert c0.time_unit == "days" and not c0.show_date
     assert opts.state_labels == {"new": "Neu"} and opts.label("new") == "Neu" and opts.label("review") == "Review"
     assert core.parse_options(core.options_dict(opts)) == opts
     old = core.parse_options({"counters": [{"id": "a", "name": "JP", "decks": []}]})   # 1.3.0 settings
     assert old.counters[0].estimate == "off" and not old.counters[0].show_states
     assert not old.counters[0].show_note_states and not old.counters[0].show_left
+    assert old.counters[0].time_unit == "months" and old.counters[0].show_date
 
 
 def math_ceil(x):
