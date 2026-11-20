@@ -24,7 +24,7 @@ def _type(col, name, fields):
 CN = "Language::中文::CC-CEDICT Optimized EN"
 CN_A = "Language::中文::詞彙::a. 孫悟空"
 JP = "Language::日本語::日本語 Vocabulary"
-VI = "Language::Vietnamese::Vietnamese Optimized Dictionary"
+VI = "Language::Tiếng Việt::Vietnamese Optimized Dictionary"
 HE = "Heisig::Chinesisch – Vereinfacht – Schreiben (3018)"
 
 ROWS = [
@@ -45,6 +45,7 @@ ROWS = [
     ("cuu", "Vietnamese Optimized EN v7", VI, {"Vietnamese": "cứu", "English": "to save"}),
     ("vieclam", "Vietnamese Optimized EN v7", VI, {"Vietnamese": "việc làm", "English": "job"}),
     ("lamviec", "Vietnamese Optimized EN v7", VI, {"Vietnamese": "làm việc", "English": "to work"}),
+    ("duc", "Vietnamese Optimized EN v7", VI, {"Vietnamese": "đức", "English": "virtue; Germany"}),
     ("an", "Vietnamese Optimized EN v7", VI, {"Vietnamese": "ăn", "English": "to eat", "ExampleEnglish": "eat a great meal"}),
     ("he_hao", "Heisig – Schreiben (einfach)", HE, {"Sortierung": "97", "Zeichen": "好", "Schluesselwort": "good"}),
 ]

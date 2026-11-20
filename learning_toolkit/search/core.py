@@ -612,16 +612,31 @@ def rewrite_search_bar(
 
 # --- recommendations for the deck the Browser shows (user 2026-11-19) -------------------------------------
 _ID_LIKE = re.compile(r"(id|key|guid|sort\w*|nr|number)$", re.IGNORECASE)
-_DECK_RE = re.compile(r'(?:^|\s)"?deck:(?:"([^"]+)"|([^\s"]+))')
+_DECK_RE = re.compile(
+    r'(?:^|(?<=[\s(]))(-?)(?:"deck:((?:[^"\\]|\\.)*)"'      # "deck:Language::Tiếng Việt"
+    r'|deck:"((?:[^"\\]|\\.)*)"'                              # deck:"Language::Tiếng Việt"
+    r'|deck:((?:[^\s"\\()]|\\.)+))',                        # deck:Language::中文
+    re.IGNORECASE,
+)
+
+
+def _unescape(text: str) -> str:
+    return re.sub(r"\\(.)", r"\1", text)
 
 
 def deck_from_search(query: str) -> str:
     """The deck a Browser search is limited to ("" if none, excluded, or "current")."""
-    m = _DECK_RE.search(query or "")
-    if not m:
-        return ""
-    deck = (m.group(1) or m.group(2) or "").strip().rstrip("*").rstrip(":")
-    return "" if deck.casefold() in ("", "current", "filtered") else deck
+    for m in _DECK_RE.finditer(query or ""):
+        if m.group(1):          # -deck:… excludes a deck
+            continue
+        raw = next(g for g in (m.group(2), m.group(3), m.group(4)) if g is not None)
+        deck = _unescape(raw).strip()
+        while deck.endswith(("*", ":")):
+            deck = deck[:-1]
+        if deck.casefold() in ("", "current", "filtered"):
+            return ""
+        return deck
+    return ""
 
 
 def recommended_fields(meta: SearchMetadata, deck: str, limit: int = 3) -> tuple[str, ...]:

@@ -1,7 +1,8 @@
 """Word search panel at the top of the Browser sidebar (4.0).
 
-Type a word, a character or a meaning; the Browser shows the matching notes while you type. The panel
-searches where you are (the deck the Browser shows) unless you pick another deck.
+A search box and four small dropdown buttons (what to search, how it matches, which deck, which cards) –
+the same kind of button as "Cards ▾" in the Browser toolbar. Results appear while you type; the deck
+follows the deck the Browser shows unless you pick another one.
 """
 
 from __future__ import annotations
@@ -10,15 +11,14 @@ from collections.abc import Callable
 
 from aqt.qt import (
     QAction,
-    QButtonGroup,
-    QComboBox,
+    QActionGroup,
     QCompleter,
     QGridLayout,
     QHBoxLayout,
     QKeySequence,
     QLabel,
     QLineEdit,
-    QPushButton,
+    QMenu,
     QSizePolicy,
     QStringListModel,
     Qt,
@@ -43,66 +43,54 @@ from .core import (
 )
 
 HERE = "@here"            # scope: the deck the Browser shows
-KIND_WORD = "word"         # the "Word" chip: word fields with the chosen match
+KIND_WORD = "word"         # word fields with the chosen match
+# key, button text, menu text
 KINDS: tuple[tuple[str, str, str], ...] = (
-    (WORD_AUTO, "Auto", "Characters search the word; Latin text searches the word and its meaning"),
-    (KIND_WORD, "Word", "Only the word itself (Simplified, Traditional, Reading, Headword …)"),
-    (WORD_MEANING, "Meaning", "Only the meaning / translation, as whole words: eat → 吃, 食べる, ăn"),
-    (WORD_EVERYWHERE, "All fields", "Every field, also examples and long definitions – finds the most"),
+    (WORD_AUTO, "Auto", "Auto – the word; for Latin text also the meaning"),
+    (KIND_WORD, "Word", "Word only – Simplified, Traditional, Reading, Headword …"),
+    (WORD_MEANING, "Meaning", "Meaning only – eat → 吃, 食べる, ăn"),
+    (WORD_EVERYWHERE, "All fields", "All fields – also examples and long definitions"),
 )
 MATCHES: tuple[tuple[str, str, str], ...] = (
-    (WORD_EXACT, "Exact", "Exactly this word: 你 → 你"),
-    (WORD_CONTAINS, "Contains", "Words containing it: 你 → 你, 你好, 你们 · cứ → cứ việc (not cứu)"),
-    (WORD_RELATED, "Related", "Words sharing a character or syllable: 你好 → 你, 好, 好人"),
+    (WORD_EXACT, "Exact", "Exact – exactly this word (你 → 你)"),
+    (WORD_CONTAINS, "Contains", "Contains – 你 → 你, 你好, 你们 · cứ → cứ việc, not cứu"),
+    (WORD_RELATED, "Related", "Related – shares a character or syllable (你好 → 好人)"),
 )
 HISTORY_SIZE = 12
 LIVE_DELAY_MS = 450
 
-_CHIP = (
-    "QPushButton{padding:3px 6px;border:1px solid palette(mid);border-radius:6px;}"
-    "QPushButton:hover{border-color:palette(highlight);}"
-    "QPushButton:checked{background:palette(highlight);color:palette(highlighted-text);font-weight:bold;}"
-    "QPushButton:focus{border:2px solid palette(highlight);}"
-)
-_SEGMENT = (
-    "QPushButton{padding:1px 4px;border:none;border-bottom:2px solid transparent;}"
-    "QPushButton:hover{border-bottom-color:palette(mid);}"
-    "QPushButton:checked{border-bottom-color:palette(highlight);font-weight:bold;}"
-)
-# palette(text) at reduced weight stays readable in light and dark mode (placeholder-text did not).
-_QUIET = "color: palette(text);"
+
+def _last(deck: str) -> str:
+    return deck.split("::")[-1] if deck else "All decks"
 
 
-def _quiet(label: QLabel) -> QLabel:
-    label.setStyleSheet(_QUIET)
-    font = label.font()
-    font.setPointSizeF(max(8.0, font.pointSizeF() - 1))
-    label.setFont(font)
-    return label
+class _DropButton(QToolButton):
+    """A button that opens a menu of choices, like the Browser's "Cards ▾"."""
 
-
-def _short_deck(name: str) -> str:
-    parts = [p for p in name.split("::") if p]
-    return " › ".join(parts[-2:]) if parts else "all decks"
-
-
-class _DeckCombo(QComboBox):
-    """Deck picker that refreshes its list every time it opens."""
-
-    def __init__(self, refresh: Callable[[], None], parent: QWidget) -> None:
+    def __init__(self, parent: QWidget, name: str) -> None:
         super().__init__(parent)
-        self._refresh = refresh
+        self.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.setMinimumWidth(40)
+        self.setAccessibleName(name)
+        self.setStyleSheet("QToolButton{padding:3px 6px;} QToolButton::menu-indicator{image:none;width:0;}")
+        self.setMenu(QMenu(self))
+        self._full = ""
 
-    def showPopup(self) -> None:
-        try:
-            self._refresh()
-        except Exception:
-            pass
-        super().showPopup()
+    def show_text(self, text: str) -> None:
+        self._full = text
+        room = max(30, self.width() - 26)
+        self.setText(self.fontMetrics().elidedText(text, Qt.TextElideMode.ElideRight, room) + " ▾")
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        if self._full:
+            self.show_text(self._full)
 
 
 class WordSearchPanel(QWidget):
-    """Type → see results. Auto mode picks the right fields; scope follows the deck you are in."""
+    """Type → see results. Auto picks the right fields; the deck follows where you are."""
 
     def __init__(
         self,
@@ -124,20 +112,22 @@ class WordSearchPanel(QWidget):
         self._here = here
         self._count = count
         self._show_scope = show_scope
+        keys = {k for k, _b, _m in KINDS}
         self._kind = str(config.get("word_kind") or WORD_AUTO)
-        if self._kind not in {k for k, _l, _t in KINDS}:
-            self._kind = WORD_AUTO
+        self._kind = self._kind if self._kind in keys else WORD_AUTO
+        matches = {k for k, _b, _m in MATCHES}
         old_mode = str(config.get("word_mode") or "")
-        self._match = str(config.get("word_match") or (old_mode if old_mode in {m for m, _l, _t in MATCHES} else WORD_CONTAINS))
-        if self._match not in {m for m, _l, _t in MATCHES}:
-            self._match = WORD_CONTAINS
+        self._match = str(config.get("word_match") or (old_mode if old_mode in matches else WORD_CONTAINS))
+        self._match = self._match if self._match in matches else WORD_CONTAINS
+        self._scope = str(config.get("word_scope", HERE))
+        self._cards = str(config.get("word_cards", "") or "")
         self._live = bool(config.get("search_as_you_type", True))
         self._history: list[str] = [str(h) for h in config.get("word_history", []) if str(h).strip()][:HISTORY_SIZE]
         self.last_query = ""
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 6, 8, 8)
-        outer.setSpacing(6)
+        outer.setSpacing(5)
 
         head = QHBoxLayout()
         head.setSpacing(4)
@@ -156,20 +146,17 @@ class WordSearchPanel(QWidget):
         self.body = QWidget(self)
         body = QVBoxLayout(self.body)
         body.setContentsMargins(0, 0, 0, 0)
-        body.setSpacing(6)
+        body.setSpacing(5)
         outer.addWidget(self.body)
 
-        # -- the box
         self.edit = QLineEdit(self.body)
         self.edit.setClearButtonEnabled(True)
-        self.edit.setPlaceholderText("Word, character or meaning…")
+        self.edit.setPlaceholderText("Word, character or meaning")
         self.edit.setAccessibleName("Word to search for")
         self.edit.setToolTip("Results appear while you type · Enter searches at once · Esc clears")
-        self.edit.setMinimumHeight(28)
         self._completer_model = QStringListModel(self._history, self)
         completer = QCompleter(self._completer_model, self.edit)
         completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
-        completer.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
         self.edit.setCompleter(completer)
         qconnect(self.edit.returnPressed, self.search)
         qconnect(self.edit.textEdited, self._typed)
@@ -184,64 +171,28 @@ class WordSearchPanel(QWidget):
         qconnect(clear.triggered, self.clear)
         self.edit.addAction(clear)
 
-        # -- what to search: Auto · Word · Meaning · All fields
-        kinds = QGridLayout()
-        kinds.setHorizontalSpacing(4)
-        kinds.setVerticalSpacing(4)
-        self.kind_group = QButtonGroup(self)
-        self.kind_buttons: dict[str, QPushButton] = {}
-        for index, (key, label, tip) in enumerate(KINDS):
-            button = self._chip(label, tip, _CHIP)
-            self.kind_group.addButton(button)
-            self.kind_buttons[key] = button
-            kinds.addWidget(button, index // 2, index % 2)
-            qconnect(button.clicked, lambda _c=False, k=key: self.set_kind(k))
-        body.addLayout(kinds)
+        self.kind_button = _DropButton(self.body, "What to search")
+        self.match_button = _DropButton(self.body, "How the word matches")
+        self.deck_button = _DropButton(self.body, "Deck")
+        self.cards_button = _DropButton(self.body, "Which cards")
+        for left, right, ratio in ((self.kind_button, self.match_button, (1, 1)),
+                                   (self.deck_button, self.cards_button, (3, 2))):
+            row = QHBoxLayout()
+            row.setSpacing(4)
+            row.addWidget(left, ratio[0])
+            row.addWidget(right, ratio[1])
+            body.addLayout(row)
+        self._fill_choice_menu(self.kind_button, KINDS, lambda: self._kind, self.set_kind)
+        self._fill_choice_menu(self.match_button, MATCHES, lambda: self._match, self.set_match)
+        self._card_choices = tuple(
+            (key, "Any card" if not key else label, "Any card" if not key else f"{label} – {tip}")
+            for key, label, tip in QUICK_FILTERS
+        )
+        self._fill_choice_menu(self.cards_button, self._card_choices, lambda: self._cards, self.set_cards)
+        qconnect(self.deck_button.menu().aboutToShow, self._fill_deck_menu)
 
-        # -- how the word matches: Exact · Contains · Related (for Auto and Word)
-        self.match_row = QWidget(self.body)
-        row = QHBoxLayout(self.match_row)
-        row.setContentsMargins(2, 0, 0, 0)
-        row.setSpacing(2)
-        self.match_group = QButtonGroup(self)
-        self.match_buttons: dict[str, QPushButton] = {}
-        for key, label, tip in MATCHES:
-            button = self._chip(label, tip, _SEGMENT)
-            button.setMinimumHeight(22)
-            self.match_group.addButton(button)
-            self.match_buttons[key] = button
-            row.addWidget(button)
-            qconnect(button.clicked, lambda _c=False, k=key: self.set_match(k))
-        body.addWidget(self.match_row)
-
-        # -- where and which cards
-        form = QGridLayout()
-        form.setHorizontalSpacing(6)
-        form.setVerticalSpacing(5)
-        form.addWidget(QLabel("In:"), 0, 0)
-        self.deck_combo = _DeckCombo(self._fill_decks, self.body)
-        self.deck_combo.setAccessibleName("Search in deck")
-        self.deck_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
-        self.deck_combo.setMinimumContentsLength(8)
-        self.deck_combo.setMaxVisibleItems(25)
-        self.deck_combo.view().setMinimumWidth(320)
-        form.addWidget(self.deck_combo, 0, 1)
-        form.addWidget(QLabel("Cards:"), 1, 0)
-        self.card_combo = QComboBox(self.body)
-        self.card_combo.setAccessibleName("Card filter")
-        self.card_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
-        self.card_combo.setMinimumContentsLength(8)
-        for key, label, tip in QUICK_FILTERS:
-            self.card_combo.addItem("Any card" if not key else label, key)
-            self.card_combo.setItemData(self.card_combo.count() - 1, tip, Qt.ItemDataRole.ToolTipRole)
-        form.addWidget(self.card_combo, 1, 1)
-        form.setColumnStretch(1, 1)
-        body.addLayout(form)
-
-        # -- what just happened
-        self.summary = _quiet(QLabel(self.body))
+        self.summary = QLabel(self.body)
         self.summary.setWordWrap(True)
-        self.summary.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         body.addWidget(self.summary)
         self.status = QLabel(self.body)          # errors only
         self.status.setWordWrap(True)
@@ -249,31 +200,77 @@ class WordSearchPanel(QWidget):
         self.status.setVisible(False)
         body.addWidget(self.status)
 
-        self._wanted_deck = str(config.get("word_scope", HERE))
-        self._fill_decks()
-        index = self.card_combo.findData(str(config.get("word_cards", "")))
-        self.card_combo.setCurrentIndex(max(0, index))
-        self.kind_buttons[self._kind].setChecked(True)
-        self.match_buttons[self._match].setChecked(True)
-        self._refresh_match_row()
+        self._refresh_buttons()
         self._describe()
-        qconnect(self.deck_combo.activated, lambda _i: self._changed_scope())
-        qconnect(self.card_combo.activated, lambda _i: self._changed_scope())
         self.set_open(bool(config.get("word_panel_open", True)), save=False)
 
-    def _chip(self, label: str, tip: str, style: str) -> QPushButton:
-        button = QPushButton(label, self.body)
-        button.setCheckable(True)
-        button.setToolTip(tip)
-        button.setAccessibleName(label)
-        button.setAccessibleDescription(tip)
-        button.setStyleSheet(style)
-        button.setMinimumHeight(26)
-        button.setCursor(Qt.CursorShape.PointingHandCursor)
-        button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        return button
+    # ------------------------------------------------------------- menus
+    def _fill_choice_menu(self, button: _DropButton, choices, current: Callable[[], str], pick: Callable[[str], None]) -> None:
+        menu = button.menu()
 
-    # ------------------------------------------------------------------ state
+        def fill() -> None:
+            menu.clear()
+            group = QActionGroup(menu)
+            for key, _text, long in choices:
+                action = menu.addAction(long)
+                action.setCheckable(True)
+                action.setChecked(key == current())
+                group.addAction(action)
+                qconnect(action.triggered, lambda _c=False, k=key: pick(k))
+
+        qconnect(menu.aboutToShow, fill)
+
+    def _fill_deck_menu(self) -> None:
+        menu = self.deck_button.menu()
+        menu.clear()
+        here = self._here()
+        group = QActionGroup(menu)
+
+        def add(target: QMenu, text: str, scope: str) -> None:
+            action = target.addAction(text)
+            action.setCheckable(True)
+            action.setChecked(scope == self._scope)
+            group.addAction(action)
+            qconnect(action.triggered, lambda _c=False, s=scope: self.set_scope(s))
+
+        add(menu, f"Here – {here.replace('::', ' › ') if here else 'all decks'} (follows the Browser)", HERE)
+        add(menu, "All decks", "")
+        menu.addSeparator()
+        children: dict[str, list[str]] = {}
+        for name in self._decks():
+            parent = name.rsplit("::", 1)[0] if "::" in name else ""
+            children.setdefault(parent, []).append(name)
+
+        def build(target: QMenu, parent: str) -> None:
+            for name in children.get(parent, []):
+                label = name.split("::")[-1]
+                if name in children:
+                    sub = target.addMenu(label)
+                    add(sub, f"All of {label}", name)
+                    sub.addSeparator()
+                    build(sub, name)
+                else:
+                    add(target, label, name)
+
+        build(menu, "")
+
+    def _refresh_buttons(self) -> None:
+        self.kind_button.show_text({k: t for k, t, _l in KINDS}[self._kind])
+        self.kind_button.setToolTip({k: m for k, _t, m in KINDS}[self._kind])
+        self.match_button.show_text({k: t for k, t, _l in MATCHES}[self._match])
+        self.match_button.setToolTip({k: m for k, _t, m in MATCHES}[self._match])
+        self.match_button.setEnabled(self._kind in (WORD_AUTO, KIND_WORD))
+        here = self._here()
+        if self._scope == HERE:
+            self.deck_button.show_text(_last(here))
+            self.deck_button.setToolTip("The deck the Browser shows – click a deck on the left to change it\n"
+                                        + (here.replace("::", " › ") if here else "Now: all decks"))
+        else:
+            self.deck_button.show_text(_last(self._scope))
+            self.deck_button.setToolTip(self._scope.replace("::", " › ") if self._scope else "All decks")
+        self.cards_button.show_text({k: t for k, t, _l in self._card_choices}.get(self._cards, "Any card"))
+
+    # ------------------------------------------------------------- state
     def set_open(self, open_: bool, *, save: bool = True) -> None:
         self.body.setVisible(open_)
         self.toggle.setText("▾" if open_ else "▸")
@@ -288,80 +285,53 @@ class WordSearchPanel(QWidget):
 
     @property
     def scope(self) -> str:
-        """HERE, "" (all decks) or a deck name."""
-        data = self.deck_combo.currentData()
-        return HERE if data is None else str(data)
+        return self._scope
 
     def deck(self) -> str:
         """The deck the next search is limited to ("" = all decks)."""
-        return self._here() if self.scope == HERE else self.scope
-
-    def _fill_decks(self) -> None:
-        current = self.deck_combo.currentData()
-        wanted = self._wanted_deck if current is None else str(current)
-        here = self._here()
-        self.deck_combo.blockSignals(True)
-        self.deck_combo.clear()
-        self.deck_combo.addItem(f"Here · {here.split('::')[-1] if here else 'all decks'}", HERE)
-        self.deck_combo.setItemData(0, "Follows the deck the Browser shows – click a deck on the left to change it.\n"
-                                    + (here.replace("::", " › ") if here else "Now: all decks"),
-                                    Qt.ItemDataRole.ToolTipRole)
-        self.deck_combo.addItem("All decks", "")
-        self.deck_combo.insertSeparator(self.deck_combo.count())
-        for name in self._decks():
-            parts = name.split("::")
-            self.deck_combo.addItem("    " * (len(parts) - 1) + parts[-1], name)
-            self.deck_combo.setItemData(self.deck_combo.count() - 1, name.replace("::", " › "), Qt.ItemDataRole.ToolTipRole)
-        index = self.deck_combo.findData(wanted)
-        self.deck_combo.setCurrentIndex(index if index >= 0 else 0)
-        self.deck_combo.setToolTip(str(self.deck_combo.itemData(self.deck_combo.currentIndex(), Qt.ItemDataRole.ToolTipRole)
-                                       or self.deck_combo.currentText()))
-        self.deck_combo.blockSignals(False)
+        return self._here() if self._scope == HERE else self._scope
 
     def location_changed(self) -> None:
-        """The Browser now shows another deck: update the label and, if a word is typed, search it there."""
-        self._fill_decks()
-        if self.scope == HERE and self.edit.text().strip():
+        """The Browser shows another deck: relabel and, if a word is typed, search it there."""
+        self._refresh_buttons()
+        if self._scope == HERE and self.edit.text().strip():
             self.search(remember=False)
         else:
             self._describe()
 
     def set_kind(self, key: str) -> None:
         self._kind = key
-        self.kind_buttons[key].setChecked(True)
-        self._refresh_match_row()
         self._save({"word_kind": key})
+        self._refresh_buttons()
         self._rerun()
 
     def set_match(self, key: str) -> None:
         self._match = key
-        self.match_buttons[key].setChecked(True)
         self._save({"word_match": key})
+        self._refresh_buttons()
         self._rerun()
 
-    def _refresh_match_row(self) -> None:
-        self.match_row.setVisible(self._kind in (WORD_AUTO, KIND_WORD))
+    def set_scope(self, scope: str) -> None:
+        self._scope = scope
+        self._save({"word_scope": scope})
+        self._refresh_buttons()
+        self._rerun(show_deck=True)
 
-    def _changed_scope(self) -> None:
-        scope = self.scope
-        self._wanted_deck = scope
-        self.deck_combo.setToolTip(str(self.deck_combo.itemData(self.deck_combo.currentIndex(), Qt.ItemDataRole.ToolTipRole)
-                                       or self.deck_combo.currentText()))
-        self._save({"word_scope": scope, "word_cards": str(self.card_combo.currentData() or "")})
+    def set_cards(self, key: str) -> None:
+        self._cards = key
+        self._save({"word_cards": key})
+        self._refresh_buttons()
+        self._rerun(show_deck=True)
+
+    def _rerun(self, show_deck: bool = False) -> None:
         if self.edit.text().strip():
             self.search()
-        elif self._show_scope is not None:   # no word: just show the deck / card filter
-            self.search()
+        elif show_deck:
+            self.clear(keep_text=True)
         else:
             self._describe()
 
-    def _rerun(self) -> None:
-        if self.edit.text().strip():
-            self.search()
-        else:
-            self._describe()
-
-    # ---------------------------------------------------------------- search
+    # ------------------------------------------------------------- search
     def _typed(self, text: str) -> None:
         if not self._live:
             return
@@ -379,27 +349,24 @@ class WordSearchPanel(QWidget):
 
     def current(self) -> WordSearch:
         mode = self._match if self._kind == KIND_WORD else self._kind
-        return WordSearch(
-            text=self.edit.text().strip(),
-            mode=mode,
-            deck=self.deck(),
-            card_filter=str(self.card_combo.currentData() or ""),
-            match=self._match,
-        )
+        return WordSearch(text=self.edit.text().strip(), mode=mode, deck=self.deck(),
+                          card_filter=self._cards, match=self._match)
 
     def search(self, remember: bool = True) -> None:
         self._timer.stop()
         spec = self.current()
+        if not spec.text:
+            self.clear(keep_text=True)
+            return
         try:
             query = self._run(spec)
         except Exception as error:
             self.status.setText(str(error))
             self.status.setVisible(True)
-            self.summary.setVisible(False)
             return
         self.status.setVisible(False)
         self.last_query = query
-        if remember and spec.text:
+        if remember:
             self._remember(spec.text)
         self._describe(found=self._count())
 
@@ -414,7 +381,7 @@ class WordSearchPanel(QWidget):
                 self._show_scope(self.deck())
             except Exception:
                 pass
-        self._describe()
+        self._describe(found=self._count() if self._show_scope is not None else None)
 
     def _remember(self, text: str) -> None:
         self._history = [text] + [h for h in self._history if h.casefold() != text.casefold()]
@@ -424,21 +391,17 @@ class WordSearchPanel(QWidget):
 
     def _describe(self, found: int | None = None) -> None:
         spec = self.current()
-        where = _short_deck(spec.deck) if spec.deck else "all decks"
+        where = _last(spec.deck)
+        count = "" if found is None else f"{found:,} note{'s' if found != 1 else ''} · "
         if not spec.text:
-            self.summary.setText(f"Searching in {where}. Type to see results.")
+            self.summary.setText(f"{count}{where}")
         else:
             if self._kind == WORD_AUTO:
-                what = "the word" if auto_targets(spec.text) == "word" else "word or meaning"
+                what = "word" if auto_targets(spec.text) == "word" else "word or meaning"
             else:
-                what = {KIND_WORD: "the word", WORD_MEANING: "the meaning", WORD_EVERYWHERE: "all fields"}[self._kind]
-            how = {WORD_EXACT: "is", WORD_CONTAINS: "contains", WORD_RELATED: "related to"}[self._match]
-            if self._kind in (WORD_MEANING, WORD_EVERYWHERE):
-                how = "contains"
-            count = "" if found is None else (f"{found} note{'s' if found != 1 else ''} · ")
-            line = f"{what} {how} “{spec.text}” · {where}"
-            self.summary.setText(count + (line[:1].upper() + line[1:] if not count else line))
-        self.summary.setVisible(True)
+                what = {KIND_WORD: "word", WORD_MEANING: "meaning", WORD_EVERYWHERE: "any field"}[self._kind]
+            self.summary.setText(f"{count}{what} · {where}")
+        self.summary.setToolTip(spec.deck.replace("::", " › ") if spec.deck else "All decks")
 
 
 def install_panel(browser, panel: WordSearchPanel) -> bool:

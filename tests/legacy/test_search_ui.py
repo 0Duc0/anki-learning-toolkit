@@ -137,7 +137,7 @@ def s1(d):
     seen["new_query"] = d.query
     seen["new_enabled"] = d.search_button.isEnabled()
     seen["new_summary"] = d.summary.text()
-    seen["new_text"] = d.quick_buttons["new"].text()
+    seen["new_text"] = d.cards_combo.currentText()
     seen["any_text_after"] = d.quick_buttons[""].text()
     d.quick_buttons["old"].setChecked(True)
     seen["exclusive"] = [k for k, bt in d.quick_buttons.items() if bt.isChecked()]
@@ -151,7 +151,7 @@ check("B1 13 filter buttons incl. Any", len(seen["chips"]) == 13, str(seen["chip
 check("B2 starts on 'Any' and Search is off with nothing chosen", seen["any_checked"] and not seen["search_enabled_empty"], str(seen))
 check("B3 New alone (no text) is searchable", seen["new_query"] == "is:new" and seen["new_enabled"], seen["new_query"])
 check("B4 summary names the filter", seen["new_summary"].startswith("New cards"), seen["new_summary"])
-check("B5 chosen filter shows a tick, others do not", seen["new_text"] == "✓ New" and seen["any_text_after"] == "Any", str(seen))
+check("B5 the Cards dropdown shows the chosen filter", seen["new_text"] == "New", str(seen))
 check("B6 filters are exclusive", seen["exclusive"] == ["old"], str(seen["exclusive"]))
 check("B7 Old + exact text builds the right query", "-is:new" in seen["combo_query"] and "Front:re:^rev_due$" in seen["combo_query"], seen["combo_query"])
 check("B8 summary combines filter and text", seen["combo_summary"].startswith("Old cards"), seen["combo_summary"])

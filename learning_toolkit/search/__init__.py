@@ -94,6 +94,7 @@ DEFAULTS = {
     "word_fields": list(DEFAULT_WORD_FIELDS),
     "meaning_fields": list(DEFAULT_MEANING_FIELDS),
     "search_bar_field": FIELD_AUTO,
+    "search_bar_auto_4": False,
     "remember_look_in": True,
 }
 _collection_epoch = 0
@@ -155,7 +156,13 @@ def _deck_in_search(query: str) -> str | None:
     if _DECK_CURRENT.search(query or ""):
         return _current_deck_name()
     deck = deck_from_search(query or "")
-    return deck or None
+    if not deck:
+        return None
+    col = getattr(mw, "col", None)
+    try:   # only real decks (a typed half name must not become "where you are")
+        return deck if col is None or col.decks.id_for_name(deck) else None
+    except Exception:
+        return None
 
 
 def _browser_deck(browser) -> str:
@@ -467,10 +474,10 @@ class SearchAssistantDialog(QDialog):
         self.query = ""
 
         self.setWindowTitle("Search Assistant")
-        self.setMinimumWidth(650)
+        self.setMinimumWidth(560)
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(18, 16, 18, 16)
-        outer.setSpacing(11)
+        outer.setContentsMargins(18, 16, 18, 14)
+        outer.setSpacing(10)
         scroll = QScrollArea(self)
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
@@ -479,70 +486,58 @@ class SearchAssistantDialog(QDialog):
         scroll.setWidget(self._content)
         outer.addWidget(scroll, 1)
         root = QVBoxLayout(self._content)
-        root.setContentsMargins(0, 0, 8, 0)
-        root.setSpacing(11)
+        root.setContentsMargins(0, 0, 6, 0)
+        root.setSpacing(10)
 
-        heading = QLabel("Find cards and notes without remembering commands")
+        heading = QLabel("Build a search")
         heading_font = heading.font()
         heading_font.setBold(True)
-        heading_font.setPointSizeF(max(heading_font.pointSizeF(), 13.0) + 3.0)
+        heading_font.setPointSizeF(heading_font.pointSizeF() + 3.0)
         heading.setFont(heading_font)
         root.addWidget(heading)
 
-        intro = QLabel(
-            "Pick the decks first, then where the text should be found. "
-            "“The word itself” ignores examples and long definitions, so unrelated "
-            "notes stay out."
-        )
-        intro.setWordWrap(True)
-        root.addWidget(intro)
-
-        show_label = QLabel("Show which cards?")
-        show_font = show_label.font()
-        show_font.setBold(True)
-        show_label.setFont(show_font)
-        root.addWidget(show_label)
-        self.quick_group = QButtonGroup(self)
-        self.quick_group.setExclusive(True)
-        self.quick_buttons: dict[str, QPushButton] = {}
-        chips = QGridLayout()
-        chips.setHorizontalSpacing(7)
-        chips.setVerticalSpacing(7)
-        for index, (key, label, tip) in enumerate(QUICK_FILTERS):
-            button = QPushButton(label)
-            button.setCheckable(True)
-            button.setToolTip(tip)
-            button.setAccessibleName(f"Show {label} cards")
-            button.setAccessibleDescription(tip)
-            button.setMinimumHeight(32)
-            button.setCursor(Qt.CursorShape.PointingHandCursor)
-            button.setStyleSheet(_CHIP_STYLE)
-            bold = button.font()
-            bold.setBold(True)
-            button.setMinimumWidth(QFontMetrics(bold).horizontalAdvance("✓ " + label) + 30)
-            self.quick_group.addButton(button)
-            self.quick_buttons[key] = button
-            chips.addWidget(button, index // 5, index % 5)
-            chips.setColumnStretch(index % 5, 1)
-            qconnect(button.toggled, lambda _on, b=button: self._chip_text(b))
-        self.quick_buttons[""].setChecked(True)
-        self._chip_text(self.quick_buttons[""])
-        root.addLayout(chips)
-
         form = QFormLayout()
-        form.setHorizontalSpacing(14)
-        form.setVerticalSpacing(9)
+        form.setHorizontalSpacing(12)
+        form.setVerticalSpacing(8)
+        form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        form.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         root.addLayout(form)
 
         self.find_edit = QLineEdit(initial_text)
         self.find_edit.setClearButtonEnabled(True)
-        self.find_edit.setPlaceholderText(
-            "Character, word, phrase… (optional when a card filter is chosen)"
-        )
+        self.find_edit.setPlaceholderText("Character, word or phrase – may stay empty")
         self.find_edit.setAccessibleName("Text to find")
+        self.find_edit.setMinimumHeight(28)
         form.addRow("Find:", self.find_edit)
 
         self.metadata = metadata
+        self.field_combo = QComboBox()
+        self.field_combo.setMaxVisibleItems(25)
+        self.field_combo.setAccessibleName("Look in field")
+        self.field_combo.setToolTip("Only fields of note types in the chosen deck are listed")
+        self._browser_deck = _browser_deck(browser)
+        self.remember_look_in = QCheckBox("Remember")
+        self.remember_look_in.setToolTip(
+            "On: opens with the field you used last time.\n"
+            "Off: opens with the recommended field of the deck you're in."
+        )
+        self.remember_look_in.setChecked(bool(_config().get("remember_look_in", True)))
+        look_row = QWidget()
+        look_layout = QHBoxLayout(look_row)
+        look_layout.setContentsMargins(0, 0, 0, 0)
+        look_layout.addWidget(self.field_combo, 1)
+        look_layout.addWidget(self.remember_look_in)
+
+        self.match_combo = QComboBox()
+        self.match_combo.addItem("Exact value", MATCH_EXACT)
+        self.match_combo.addItem("Contains the word (你 → 你好 · cứ → cứ việc)", MATCH_CONTAINS_WORD)
+        self.match_combo.addItem("Shares a character or syllable (你好 → 好人)", MATCH_RELATED)
+        self.match_combo.addItem("Contains text (any part)", MATCH_CONTAINS)
+        self.match_combo.addItem("Starts with", MATCH_STARTS)
+        self.match_combo.addItem("Ends with", MATCH_ENDS)
+        self.match_combo.addItem("Is empty", MATCH_EMPTY)
+        self.match_combo.addItem("Is not empty", MATCH_NOT_EMPTY)
+
         self.deck_combo = QComboBox()
         self.deck_combo.addItem("All decks", ("all", ""))
         self.deck_combo.addItem("Current deck", ("current", ""))
@@ -556,50 +551,58 @@ class SearchAssistantDialog(QDialog):
             )
         self.deck_combo.setMaxVisibleItems(25)
         self.deck_combo.setAccessibleName("Search in deck")
-        form.addRow("Search in:", self.deck_combo)
+        if self._browser_deck:   # start where the Browser is
+            here = self.deck_combo.findData(("specific", self._browser_deck))
+            if here >= 0:
+                self.deck_combo.setCurrentIndex(here)
 
-        self.field_combo = QComboBox()
-        self.field_combo.setMaxVisibleItems(25)
-        self.field_combo.setAccessibleName("Look in field")
-        self.field_combo.setToolTip(
-            "Only fields of note types in the chosen decks are listed"
-        )
-        self._browser_deck = _browser_deck(browser)
-        look_row = QWidget()
-        look_layout = QHBoxLayout(look_row)
-        look_layout.setContentsMargins(0, 0, 0, 0)
-        look_layout.addWidget(self.field_combo, 1)
-        self.remember_look_in = QCheckBox("Remember my choice")
-        self.remember_look_in.setToolTip(
-            "On: the dialog opens with the field you used last time.\n"
-            "Off: it opens with the recommended field of the deck you're in (its sort field),\n"
-            "or \"The word itself\" outside a deck."
-        )
-        self.remember_look_in.setChecked(bool(_config().get("remember_look_in", True)))
-        look_layout.addWidget(self.remember_look_in)
+        # Card filter: one dropdown (the chips are kept as the state behind it)
+        self.quick_group = QButtonGroup(self)
+        self.quick_group.setExclusive(True)
+        self.quick_buttons: dict[str, QPushButton] = {}
+        self.cards_combo = QComboBox()
+        self.cards_combo.setAccessibleName("Which cards")
+        for key, label, tip in QUICK_FILTERS:
+            button = QPushButton(label, self)
+            button.setCheckable(True)
+            button.setVisible(False)
+            button.setToolTip(tip)
+            button.setAccessibleName(f"Show {label} cards")
+            self.quick_group.addButton(button)
+            self.quick_buttons[key] = button
+            self.cards_combo.addItem("Any card" if not key else label, key)
+            self.cards_combo.setItemData(self.cards_combo.count() - 1, tip, Qt.ItemDataRole.ToolTipRole)
+        self.quick_buttons[""].setChecked(True)
+        qconnect(self.cards_combo.activated, lambda i: self.quick_buttons[str(self.cards_combo.itemData(i) or "")].setChecked(True))
+        qconnect(self.quick_group.buttonToggled, lambda _b, _on: self._sync_cards_combo())
+
         form.addRow("Look in:", look_row)
+        form.addRow("Match:", self.match_combo)
+        form.addRow("Deck:", self.deck_combo)
+        form.addRow("Cards:", self.cards_combo)
         self._wanted_field = ""
         self._fill_fields()
 
-        self.match_combo = QComboBox()
-        self.match_combo.addItem("Exact value (recommended)", MATCH_EXACT)
-        self.match_combo.addItem("Contains the word (你 → 你好 · cứ → cứ việc)", MATCH_CONTAINS_WORD)
-        self.match_combo.addItem("Shares a character or syllable (你好 → 好人)", MATCH_RELATED)
-        self.match_combo.addItem("Contains text (any part)", MATCH_CONTAINS)
-        self.match_combo.addItem("Starts with", MATCH_STARTS)
-        self.match_combo.addItem("Ends with", MATCH_ENDS)
-        self.match_combo.addItem("Is empty", MATCH_EMPTY)
-        self.match_combo.addItem("Is not empty", MATCH_NOT_EMPTY)
-        form.addRow("Match:", self.match_combo)
-
-
-
-        self.optional = QGroupBox("Optional filters")
-        self.optional.setCheckable(True)
+        self.more_button = QToolButton()
+        self.more_button.setText("More filters")
+        self.more_button.setCheckable(True)
+        self.more_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.more_button.setArrowType(Qt.ArrowType.RightArrow)
+        self.more_button.setAutoRaise(True)
+        root.addWidget(self.more_button)
+        self.optional = QGroupBox()
+        self.optional.setCheckable(True)    # checked = the extra filters are used
         self.optional.setChecked(False)
+        self.optional.setVisible(False)
+        self.optional.setFlat(True)
+        self.optional.setStyleSheet("QGroupBox::indicator{width:0;height:0;} QGroupBox{border:none;margin:0;padding:0;}")
+        qconnect(self.more_button.toggled, self._toggle_more)
         optional_form = QFormLayout(self.optional)
-        optional_form.setHorizontalSpacing(14)
+        optional_form.setContentsMargins(0, 0, 0, 0)
+        optional_form.setHorizontalSpacing(12)
         optional_form.setVerticalSpacing(8)
+        optional_form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        optional_form.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         root.addWidget(self.optional)
 
         self.note_combo = QComboBox()
@@ -611,7 +614,7 @@ class SearchAssistantDialog(QDialog):
         tag_row = QWidget(self.optional)
         tag_layout = QHBoxLayout(tag_row)
         tag_layout.setContentsMargins(0, 0, 0, 0)
-        tag_layout.setSpacing(7)
+        tag_layout.setSpacing(6)
         self.tag_mode = QComboBox()
         self.tag_mode.addItem("Any tag", "any")
         self.tag_mode.addItem("Has tag", "include")
@@ -624,31 +627,34 @@ class SearchAssistantDialog(QDialog):
         tag_layout.addWidget(self.tag_combo, 1)
         optional_form.addRow("Tag:", tag_row)
 
-        self.combine_current = QCheckBox("Also narrow the current Browser search")
+        self.combine_current = QCheckBox("Keep the current Browser search and narrow it")
         current_query = self._current_query()
         self.combine_current.setEnabled(bool(current_query))
-        self.combine_current.setToolTip(
-            "Keeps the currently visible Browser search and adds these conditions."
-        )
-        optional_form.addRow("Combine:", self.combine_current)
+        optional_form.addRow("", self.combine_current)
 
+        line = QFrame()
+        line.setFrameShape(QFrame.Shape.HLine)
+        line.setFrameShadow(QFrame.Shadow.Sunken)
+        root.addWidget(line)
         self.summary = QLabel()
         self.summary.setWordWrap(True)
+        summary_font = self.summary.font()
+        summary_font.setBold(True)
+        self.summary.setFont(summary_font)
         root.addWidget(self.summary)
-
-        technical_label = QLabel(
-            "Anki query (for reference only — you do not need to memorize it):"
-        )
-        technical_label.setWordWrap(True)
-        root.addWidget(technical_label)
         technical_row = QHBoxLayout()
+        technical_row.setSpacing(6)
         self.query_preview = QLineEdit()
         self.query_preview.setReadOnly(True)
-        copy_button = QPushButton("Copy")
+        self.query_preview.setAccessibleName("Anki search text")
+        self.query_preview.setToolTip("What Anki will search for – you don't need to remember it")
+        copy_button = QToolButton()
+        copy_button.setText("Copy")
         qconnect(copy_button.clicked, self._copy_query)
         technical_row.addWidget(self.query_preview, 1)
         technical_row.addWidget(copy_button)
         root.addLayout(technical_row)
+        root.addStretch(1)
 
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
@@ -697,6 +703,17 @@ class SearchAssistantDialog(QDialog):
         self.find_edit.setFocus()
         if initial_text:
             self.find_edit.selectAll()
+
+    def _toggle_more(self, on: bool) -> None:
+        self.more_button.setArrowType(Qt.ArrowType.DownArrow if on else Qt.ArrowType.RightArrow)
+        self.optional.setVisible(on)
+        self.optional.setChecked(on)
+        self._height_guard.fit() if hasattr(self, "_height_guard") else None
+
+    def _sync_cards_combo(self) -> None:
+        index = self.cards_combo.findData(self._quick_key())
+        if index >= 0 and index != self.cards_combo.currentIndex():
+            self.cards_combo.setCurrentIndex(index)
 
     def _scope_deck(self) -> str:
         scope = self.deck_combo.currentData() or ("all", "")
@@ -841,12 +858,11 @@ class SearchAssistantDialog(QDialog):
             )
         except Exception as error:
             self.query = ""
-            self.query_preview.setText(str(error))
-            self.query_preview.setStyleSheet("color: palette(mid);")
-            self.summary.setText("Choose the search conditions above.")
+            self.query_preview.setText("")
+            self.query_preview.setPlaceholderText(str(error))
+            self.summary.setText("Type something to find, or pick a card filter.")
             self.search_button.setEnabled(False)
             return
-        self.query_preview.setStyleSheet("")
         self.query_preview.setText(self.query)
         self.summary.setText(self._friendly_summary(spec))
         self.search_button.setEnabled(True)
@@ -870,6 +886,7 @@ class SearchAssistantDialog(QDialog):
         self.deck_combo.setCurrentIndex(0)
         self.field_combo.setCurrentIndex(max(0, self.field_combo.findData(FIELD_WORD)))
         self.match_combo.setCurrentIndex(0)
+        self.more_button.setChecked(False)
         self.optional.setChecked(False)
         self.note_combo.setCurrentIndex(0)
         self.quick_buttons[""].setChecked(True)
@@ -1098,7 +1115,7 @@ def _setup_word_panel(browser: Browser) -> None:
         save=_save_config,
         here=lambda: _browser_deck(browser),
         count=lambda: _result_count(browser),
-        show_scope=lambda deck: _show_scope(browser, deck, str(panel.card_combo.currentData() or "")),
+        show_scope=lambda deck: _show_scope(browser, deck, panel._cards),
     )
     if not install_panel(browser, panel):
         panel.deleteLater()
@@ -1249,10 +1266,18 @@ def _make_search_bar_button(browser: Browser) -> QToolButton:
     return button
 
 
+def _migrate_to_auto() -> None:
+    """4.0: the search bar starts on Auto once (a single-field default made most searches find nothing)."""
+    config = _config()
+    if not config.get("search_bar_auto_4"):
+        _save_config({"search_bar_field": FIELD_AUTO, "search_bar_auto_4": True})
+
+
 def _setup_browser(browser: Browser) -> None:
     if getattr(browser, "_simple_search_assistant_ready", False):
         return
     browser._simple_search_assistant_ready = True
+    _migrate_to_auto()
 
     action = QAction("Search Assistant…", browser)
     shortcut = str(_config().get("shortcut", "")).strip()
