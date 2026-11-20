@@ -12,17 +12,11 @@ from aqt.utils import showInfo
 
 from ..common.config import SectionConfig
 from ..common.menu import toolkit_menu
-from .core import (
-    CollectionUnavailable,
-    Options,
-    collect_snapshot,
-    options_dict,
-    parse_options,
-)
-from .display import update_script
-from .settings import SettingsDialog
+from .core import CollectionUnavailable, Options, collect_snapshot, options_dict, parse_options
 
 _CFG = SectionConfig('deck_progress')
+from .display import update_script
+from .settings import SettingsDialog
 
 
 class Controller:

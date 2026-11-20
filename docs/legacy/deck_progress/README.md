@@ -1,18 +1,24 @@
 # Deck Progress
 
-Named progress counters below the deck list's heatmap. Anki Desktop 25.02 or
-later; tested with the installed Anki 25.09.4 / Python 3.13 / Qt 6.9 APIs.
+Named progress counters below the deck list's heatmap. Requires Anki Desktop
+25.02 or later.
 
 ## Set up
 
 1. In Anki, choose **Tools → Add-ons → Install from file…** and select
-   `Deck_Progress_v1.0.0.ankiaddon`. Restart Anki.
+   `Deck_Progress_v1.3.0.ankiaddon`. Restart Anki. This updates the existing Deck
+   Progress add-on and keeps your counters.
 2. Under the heatmap, click **Add your first counter**. You can also use
    **Tools → Learning Toolkit → Deck Progress…** or the add-on's **Config** button.
-3. Enter a display name, such as **Japanese**, then click **Choose decks…**.
-   Search and check one or more source decks. Click **Save**.
-4. Use **＋ Add** for additional counters. Click any counter on the deck list to
-   edit it. **Move up/down** changes the display order.
+3. On **Counter**, enter a name, such as **Japanese**, and click **Choose decks…**.
+   Search and check one or more source decks. Choose **Cards**, **Notes**, or
+   **Cards and notes** and set **Card states**. Click **Save**.
+4. Open **Progress** to turn on **Show selected total**, **Show progress bar and
+   percentage**, or both. Use **Choose goal decks…** to add decks with material
+   you plan to learn. Set **Goal deck states** to filter those additional decks.
+5. Use **Add** for additional counters. The sliders button next to **Deck
+   progress** opens settings. Clicking a counter opens its settings directly.
+   **Move up/down** changes the display order.
 
 No decks are selected automatically. You control what each number represents.
 Counters can track any subject, not only languages.
@@ -22,7 +28,7 @@ Counters can track any subject, not only languages.
 - Choose `Language::Japanese::a. Frieren`, name it **Japanese**, and keep
   **Only a. stages** off: the chosen deck and optionally its subdecks are counted.
 - Alternatively choose the Japanese parent, keep **Include subdecks** on and turn
-  on **Only a. stages within this selection**. This combines all a. stages
+  on **Only a. stages in counter decks**. This combines all a. stages
   beneath that selection and discovers new ones automatically.
 - Both `a. Frieren` and `a.Frieren` are recognized. The selection does not depend
   on the character's name or on the Stage Shifter's configured start/end letters.
@@ -33,17 +39,31 @@ Counters can track any subject, not only languages.
 
 ## What the number means
 
-- **Studied cards:** selected cards whose current Anki answer count (`reps`) is
-  greater than zero. New, unanswered cards do not count, even in an a. stage.
-  A card's number of reviews does not multiply its contribution: it counts once.
-- **Studied words (notes):** distinct Anki notes with at least one studied card
-  in the selected decks. This is not a promise that every sibling card has been
-  learned, nor a linguistic count of unique dictionary words.
-- **Cards + words:** cards as the main number, note count underneath.
-- **Show selected total:** adds the total selected cards/notes beside the
-  studied count. The daily new-card limit does not cap these totals.
-- **Suspended cards:** included by default if they have been studied. You can
-  exclude them per counter. Buried cards retain their studied status.
+- **Card states** defaults to **Answered at least once**, which uses the card's
+  current Anki answer count (`reps > 0`). Choose **All states** to count every
+  eligible card, or select any combination of **New**, **Learning**,
+  **Relearning**, **Young review** (interval under 21 days), and **Mature
+  review** (interval of at least 21 days). Select both review groups to count
+  all cards in the review state.
+- A note counts once when any of its selected cards matches the filter. A note
+  can qualify in different counters if its cards are in different states.
+  **Introduced** is the default note label for the answered filter. Set a
+  **Card label** or **Note label** to use your own wording.
+- With **Require every card of a note to match**, a note needs a matching card
+  in the counter decks and every eligible sibling must match, including siblings
+  in other decks. For fully learned notes, select **Young review** and **Mature
+  review**, enable the note option, and turn off **Include suspended cards** to
+  ignore suspended siblings.
+- **Show selected total** displays the counter count over the goal total.
+  **Show progress bar and percentage** displays the same ratio visually. The
+  goal total includes all eligible cards from the counter decks and matching
+  cards from additional goal decks. The note matching rule applies to the
+  counter count. For example, with **New** as the goal deck
+  filter, the extra contribution changes as cards enter or leave the New state.
+  The daily new-card limit does not cap the goal.
+- **Include subdecks**, **Include suspended cards**, and **Include buried
+  cards** apply to both sets of decks. The **Only a. stages** filter applies to
+  counter decks. Suspended and buried cards are included by default.
 - Filtered-deck cards are attributed to their original/home deck (`odid`).
 - A deck rename preserves its counter because selections store stable deck IDs.
   Deleted decks produce a notice, not a silent replacement by a similarly named
@@ -73,18 +93,4 @@ Counters can track any subject, not only languages.
   pending callbacks. Read errors show an unavailable state, without repeated
   error popups or invented zero counts.
 - Home-screen replacements that remove both standard stats and Heatmap anchors
-  may not show the panel. The Tools settings entry still works. Only desktop
-  Anki/Qt was tested; mobile apps do not install desktop add-ons.
-
-## Development
-
-Source: `anki_addons/deck_progress`. Test fixture databases are synthetic and
-temporary. No user collection or installed add-on is used for testing.
-
-```sh
-QT_QPA_PLATFORM=offscreen /path/to/Anki/python -m unittest discover \
-  -s tests/deck_progress -p 'test_*.py' -v
-QT_QPA_PLATFORM=offscreen /path/to/Anki/python tests/deck_progress/make_preview.py
-node tests/deck_progress/check_web.mjs output/Deck_Progress_2026-11-19/preview-fixtures.json
-python scripts/package_deck_progress.py
-```
+  may not show the panel. The Tools settings entry still works.
