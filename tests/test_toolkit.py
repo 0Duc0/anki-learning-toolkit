@@ -65,7 +65,7 @@ def test_package_installs_and_switches_old_addons_off(tmp_path):
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tools"))
     import package
 
-    built = package.main()
+    built = package.main([])[0]
     mw, addons = make_mw(legacy={"sound_volume": (True, {}), "words_left": (True, {})})
     shutil.rmtree(os.path.join(addons, "learning_toolkit"))   # start as a fresh install
     result = mw.addonManager.install(str(built))
@@ -74,3 +74,45 @@ def test_package_installs_and_switches_old_addons_off(tmp_path):
     assert set(result.conflicts) >= {"sound_volume", "words_left"}
     assert not mw.addonManager.isEnabled("sound_volume")
     assert os.path.isdir(os.path.join(addons, "sound_volume"))   # switched off, not deleted
+
+
+def _install_single(key, legacy_cfg=None):
+    """Build the single add-on for `key`, install it over an old stand-alone copy with `legacy_cfg`."""
+    import shutil
+    import sys
+    import zipfile
+
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tools"))
+    import package
+
+    built = package.build_single(key)
+    folder = package.VERSIONS["modules"][key]["package"]
+    mw, addons = make_mw(legacy={folder: (True, legacy_cfg or {})})
+    shutil.rmtree(os.path.join(addons, "learning_toolkit"))
+    result = mw.addonManager.install(str(built))
+    assert getattr(result, "name", None), result
+    for name in [m for m in sys.modules if m == folder or m.startswith(folder + ".")]:
+        del sys.modules[name]
+    pkg = importlib.import_module(folder)
+    return mw, addons, pkg, folder
+
+
+def test_single_addon_keeps_the_old_flat_settings_and_loads_only_its_part():
+    old = {"profiles": {"User 1": {"enabled": True, "counters": [{"id": "a", "name": "JP", "decks": [{"id": 5, "name": "X"}]}]}}}
+    mw, addons, pkg, folder = _install_single("deck_progress", old)
+    assert pkg.STATUS["deck_progress"] == "on"
+    assert all(pkg.STATUS[k] == "off" for k in MODULES if k != "deck_progress")
+    assert sorted(f for f in os.listdir(os.path.join(addons, folder)) if f != "__pycache__") == sorted(
+        ["README.md", "__init__.py", "_build.py", "common", "config.json", "config.md", "deck_progress", "hub.py",
+         "manifest.json", "meta.json"])
+    cfg = importlib.import_module(f"{folder}.common.config")
+    assert cfg.SectionConfig("deck_progress").getConfig()["profiles"]["User 1"]["counters"][0]["name"] == "JP"
+    cfg.SectionConfig("deck_progress").writeConfig("x", {"profiles": {}, "enabled": True})
+    meta = json.load(open(os.path.join(addons, folder, "meta.json")))
+    assert meta["config"] == {"profiles": {}, "enabled": True}       # flat, like the old add-on: downgrade works
+
+
+def test_every_single_addon_builds_and_starts():
+    for key in MODULES:
+        mw, addons, pkg, folder = _install_single(key)
+        assert pkg.STATUS[key] == "on", (key, pkg.DETAIL.get(key))

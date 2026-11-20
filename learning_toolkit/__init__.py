@@ -58,7 +58,7 @@ def _load() -> None:
         return
     from .common import config, legacy
 
-    if not config.all_config().get("migrated_legacy_settings"):
+    if not config.ONLY and not config.all_config().get("migrated_legacy_settings"):
         try:
             copied = legacy.migrate_settings(mw, config.write_section, config.saved_section)
             config.write_key("migrated_legacy_settings", True)
@@ -71,7 +71,7 @@ def _load() -> None:
         if not config.module_enabled(key):
             STATUS[key] = "off"
             continue
-        clash = legacy.blocking(mw, key)
+        clash = [] if config.ONLY else legacy.blocking(mw, key)
         if clash:
             STATUS[key] = "legacy"
             DETAIL[key] = ", ".join(clash)

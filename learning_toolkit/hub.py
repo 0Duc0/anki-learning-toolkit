@@ -117,7 +117,7 @@ class Row(QFrame):
 class Hub(QDialog):
     def __init__(self) -> None:
         super().__init__(mw)
-        self.setWindowTitle("Learning Toolkit")
+        self.setWindowTitle("Learning Toolkit" if not config.ONLY else next(m[1] for m in MODULES if m[0] == config.ONLY))
         self.setMinimumSize(640, 560)
         self.setStyleSheet(STYLE)
         root = QVBoxLayout(self)
@@ -137,7 +137,7 @@ class Hub(QDialog):
         rows = QVBoxLayout(inner)
         rows.setContentsMargins(0, 4, 0, 4)
         rows.setSpacing(8)
-        self.rows = [Row(*m) for m in MODULES]
+        self.rows = [Row(*m) for m in MODULES if not config.ONLY or m[0] == config.ONLY]
         for row in self.rows:
             rows.addWidget(row)
         rows.addStretch(1)
@@ -148,7 +148,7 @@ class Hub(QDialog):
         scroll.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         root.addWidget(scroll, 1)
 
-        self.clashes = [f for items in legacy.installed(mw).values() for f, on in items if on]
+        self.clashes = [] if config.ONLY else [f for items in legacy.installed(mw).values() for f, on in items if on]
         buttons = QDialogButtonBox()
         if self.clashes:
             off = buttons.addButton("Switch off old add-ons…", QDialogButtonBox.ButtonRole.ActionRole)

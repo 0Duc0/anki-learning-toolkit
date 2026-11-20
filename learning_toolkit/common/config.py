@@ -12,6 +12,11 @@ import traceback
 
 PACKAGE = __name__.split(".", 1)[0]
 
+try:
+    from .._build import ONLY   # a single add-on built from the toolkit: its settings are not sectioned
+except ImportError:
+    ONLY = ""
+
 
 def _mw():
     from aqt import mw
@@ -34,6 +39,8 @@ def all_config() -> dict:
 
 def section(name: str) -> dict:
     """The module's saved settings (a copy). Missing or broken sections give {}."""
+    if ONLY:   # single add-on: the whole settings file is this module's (same as the old stand-alone add-on)
+        return {k: v for k, v in all_config().items() if k != "modules"}
     value = all_config().get(name)
     return dict(value) if isinstance(value, dict) else {}
 
@@ -48,6 +55,8 @@ def saved_config() -> dict:
 
 
 def saved_section(name: str) -> dict:
+    if ONLY:
+        return saved_config()
     value = saved_config().get(name)
     return dict(value) if isinstance(value, dict) else {}
 
@@ -61,10 +70,15 @@ def write_key(name: str, value) -> None:
 
 
 def write_section(name: str, data: dict) -> None:
+    if ONLY:
+        _mw().addonManager.writeConfig(PACKAGE, dict(data))
+        return
     write_key(name, dict(data))
 
 
 def module_enabled(key: str) -> bool:
+    if ONLY:
+        return key == ONLY
     modules = all_config().get("modules")
     return not (isinstance(modules, dict) and modules.get(key) is False)
 

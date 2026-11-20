@@ -11,18 +11,22 @@ menu, one settings file and one place to switch parts on and off.
 | **Quick Note Mover** | Moves the selected notes to the current deck or to a saved target deck with one click or a shortcut. | Browser › Notes › Quick Note Move |
 | **Change Deck counts** | Adds “Change Deck…” to the Browser's right-click menu and shows New / Learn / Due and note counts per deck in that dialog. | Browser right-click menu |
 | **Words Left** | Adds a “Words left” column to the deck list: notes you have not started yet. | Deck list |
-| **Deck Progress** | Named counters of studied cards or words below the deck list. | Tools › Learning Toolkit › Deck Progress… |
+| **Deck Progress** | Named counters below the deck list: studied words, goal and progress bar, optional card states (New, Learning, Review …) and an estimate of when you will be done. | Tools › Learning Toolkit › Deck Progress… |
 | **Search Assistant** | Word search in the Browser sidebar: results appear while you type, *Auto* picks the right fields (characters → the word, Latin text → word or meaning), and it searches the deck you are in. The normal search bar can use the same Auto mode. Read-only. | Browser sidebar, Browser › Search… |
 | **Sound Volume** | One volume, speed and loudness setting for all card audio, adjustable while you study. | Tools › Learning Toolkit › Sound Volume…, `Ctrl+Alt+Up/Down/M` |
 | **Study Session Clock** | Status-bar clock with focused study time and a per-deck time dashboard. | Status bar, Tools › Learning Toolkit › Study Clock |
 
 ## Install
 
-1. Download `learning_toolkit-<version>.ankiaddon` from the
-   [latest release](../../releases/latest) and double-click it (or *Tools › Add-ons › Install from file…*).
+1. Download `learning_toolkit-<version>.ankiaddon` from the newest `toolkit-v…` release in
+   [Releases](../../releases) and double-click it (or *Tools › Add-ons › Install from file…*).
 2. Restart Anki.
 
 Requires Anki 25.02 or newer.
+
+**Only want one part?** Every part is also released on its own (e.g. `deck_progress-1.4.0.ankiaddon`), and
+older versions stay downloadable. How versions, upgrading and downgrading work: [docs/versions.md](docs/versions.md).
+What changed: [docs/changelog.md](docs/changelog.md).
 
 ### Coming from the separate add-ons
 
@@ -56,12 +60,17 @@ The original documentation of each part is kept in [`docs/legacy/`](docs/legacy/
 | ![Sound volume](docs/screenshots/sound-volume.png) | ![Change Deck with counts](docs/screenshots/change-deck-counts.png) |
 | Sound volume | Change Deck with counts per deck |
 
+![Deck Progress](docs/screenshots/deck-progress.png)
+
+Deck Progress with card states and finish estimate (light and dark mode).
+
 ## Development
 
 ```
 pip install anki aqt pytest
 QT_QPA_PLATFORM=offscreen python -m pytest tests
 python tools/package.py          # → dist/learning_toolkit-<version>.ankiaddon
+python tools/package.py --all    # + every part as its own add-on (versions: tools/versions.json)
 ```
 
 - `tests/test_toolkit.py` loads the whole toolkit into an offscreen main window with Anki's real
