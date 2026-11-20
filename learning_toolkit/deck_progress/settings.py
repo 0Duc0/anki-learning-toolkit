@@ -2,18 +2,33 @@
 
 from __future__ import annotations
 
-from dataclasses import replace
 import uuid
+from dataclasses import replace
 
 from aqt.qt import (
-    QAbstractItemView, QCheckBox, QComboBox, QDialog, QDialogButtonBox,
-    QFormLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem,
-    QMessageBox, QPushButton, QSplitter, QTreeWidget, QTreeWidgetItem,
-    Qt, QVBoxLayout, QWidget, qconnect,
+    QAbstractItemView,
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QFormLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QMessageBox,
+    QPushButton,
+    QSplitter,
+    Qt,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QVBoxLayout,
+    QWidget,
+    qconnect,
 )
 
-from .core import Counter, DeckRef, MAX_COUNTERS, Options
-
+from .core import MAX_COUNTERS, Counter, DeckRef, Options
 
 STYLE = """
 QDialog#deckProgressSettings QLabel#dpTitle { font-size: 20px; font-weight: 600; }

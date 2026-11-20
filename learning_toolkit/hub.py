@@ -11,8 +11,19 @@ import sys
 
 from aqt import mw
 from aqt.qt import (
-    QCheckBox, QDialog, QDialogButtonBox, QFrame, QHBoxLayout, QLabel, QPushButton,
-    QScrollArea, QSizePolicy, QVBoxLayout, QWidget, Qt, qconnect,
+    QCheckBox,
+    QDialog,
+    QDialogButtonBox,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QScrollArea,
+    QSizePolicy,
+    Qt,
+    QVBoxLayout,
+    QWidget,
+    qconnect,
 )
 from aqt.utils import askUser, showInfo, tooltip
 

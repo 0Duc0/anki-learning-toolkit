@@ -23,6 +23,7 @@ from aqt.qt import (
 )
 from aqt.utils import askUser, showWarning, tooltip
 
+from ..common.config import SectionConfig
 from .core import (
     NoteMovePlan,
     NoteMoveResult,
@@ -33,7 +34,6 @@ from .core import (
     scan_stage_groups,
     target_for_deck_id,
 )
-from ..common.config import SectionConfig
 
 _CFG = SectionConfig('note_mover')
 
@@ -287,14 +287,14 @@ def _choose_target(
     layout.addWidget(_heading("Choose the permanent quick target"))
 
     subtitle = QLabel(
-        (
+        
             "Choose this once. The current selection will move immediately after "
             "saving; later saved-target moves use it without another dialog."
             if move_after_save
             else "Choose this once. Afterwards the saved-target action moves "
             "selected notes here immediately. The shortcut always uses Anki's "
             "current deck."
-        )
+        
     )
     subtitle.setObjectName("subtitle")
     subtitle.setWordWrap(True)
@@ -702,13 +702,13 @@ def _add_browser_menu(browser: Browser) -> None:
     here_action.setShortcut(_shortcut())
     qconnect(here_action.triggered, lambda _checked=False: _quick_move_here(browser))
     menu.addAction(here_action)
-    setattr(browser, "_quick_note_mover_here_action", here_action)
+    browser._quick_note_mover_here_action = here_action
 
     saved_action = QAction(_saved_action_text(browser), menu)
     saved_action.setShortcut(_shortcut("saved_shortcut"))
     qconnect(saved_action.triggered, lambda _checked=False: _quick_move_saved(browser))
     menu.addAction(saved_action)
-    setattr(browser, "_quick_note_mover_saved_action", saved_action)
+    browser._quick_note_mover_saved_action = saved_action
 
     menu.addSeparator()
     current_target_action = QAction("Use current deck as saved target", menu)
@@ -835,8 +835,8 @@ def _install_tools_menu() -> None:
     )
     menu.addAction(warning_action)
     organize.addMenu(menu)
-    setattr(mw, "_quick_note_mover_tools_menu", menu)
-    setattr(mw, "_quick_note_mover_warning_action", warning_action)
+    mw._quick_note_mover_tools_menu = menu
+    mw._quick_note_mover_warning_action = warning_action
 
 
 _install_tools_menu()

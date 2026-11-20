@@ -25,12 +25,13 @@ from aqt.qt import (
     QShortcut,
     QSlider,
     QSpinBox,
+    Qt,
     QVBoxLayout,
     QWidget,
-    Qt,
     qconnect,
 )
 from aqt.utils import tooltip
+
 from ..common.config import SectionConfig
 
 _CFG = SectionConfig('sound')
@@ -181,7 +182,7 @@ def toggle_mute() -> None:
 # dialog
 # ---------------------------------------------------------------------------
 
-_dialog: "VolumeDialog | None" = None
+_dialog: VolumeDialog | None = None
 
 
 def _sync_dialog() -> None:
@@ -354,7 +355,7 @@ class VolumeDialog(QDialog):
         save({"volume": 100, "muted": False, "speed": 1.0, "normalize": False})
         self.load()
 
-    def closeEvent(self, event) -> None:  # noqa: N802 (Qt API)
+    def closeEvent(self, event) -> None:
         global _dialog
         _dialog = None
         super().closeEvent(event)

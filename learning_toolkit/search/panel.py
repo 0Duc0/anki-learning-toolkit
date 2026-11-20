@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Callable
+from collections.abc import Callable
 
 from aqt.qt import (
     QAction,
@@ -15,10 +15,10 @@ from aqt.qt import (
     QLineEdit,
     QPushButton,
     QSizePolicy,
+    Qt,
     QToolButton,
     QVBoxLayout,
     QWidget,
-    Qt,
     qconnect,
 )
 
@@ -40,7 +40,7 @@ class _DeckCombo(QComboBox):
         super().__init__(parent)
         self._refresh = refresh
 
-    def showPopup(self) -> None:  # noqa: N802 (Qt API)
+    def showPopup(self) -> None:
         try:
             self._refresh()
         except Exception:

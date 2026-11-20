@@ -15,7 +15,6 @@ from anki.consts import (
     CARD_TYPE_REV,
 )
 
-
 STAGE_RE = re.compile(r"^([A-Za-z])\.\s*(.+)$")
 VALID_DIRECTIONS = {"toward_a", "toward_end"}
 VALID_LIMIT_UNITS = {"cards", "notes"}

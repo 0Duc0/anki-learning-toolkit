@@ -84,10 +84,10 @@ class SectionConfig:
     def __init__(self, name: str) -> None:
         self.name = name
 
-    def getConfig(self, _module: str = "") -> dict:  # noqa: N802 - mirrors Anki's API
+    def getConfig(self, _module: str = "") -> dict:
         return section(self.name)
 
-    def writeConfig(self, _module: str, data: dict) -> None:  # noqa: N802
+    def writeConfig(self, _module: str, data: dict) -> None:
         write_section(self.name, data)
 
     def saved(self) -> dict:

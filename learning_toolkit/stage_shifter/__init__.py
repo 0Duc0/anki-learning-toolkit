@@ -11,34 +11,36 @@ from anki.consts import (
 from aqt import gui_hooks, mw
 from aqt.operations import CollectionOp, QueryOp
 from aqt.qt import (
-    QAction,
     QAbstractItemView,
+    QAction,
     QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
     QEvent,
     QFont,
-    QFrame,
     QFormLayout,
+    QFrame,
     QGroupBox,
-    QHeaderView,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
     QMenu,
     QObject,
     QPalette,
     QScrollArea,
     QSpinBox,
+    Qt,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
-    Qt,
     qconnect,
 )
 from aqt.utils import showInfo, showWarning
 
+from ..common.config import SectionConfig
+from ..common.menu import submenu, toolkit_menu
 from .core import (
     ShiftOptions,
     ShiftPlan,
@@ -49,8 +51,6 @@ from .core import (
     scan_groups,
     shift_plan,
 )
-from ..common.config import SectionConfig
-from ..common.menu import submenu, toolkit_menu
 
 _CFG = SectionConfig('stage_shifter')
 
@@ -176,7 +176,7 @@ class _HeightGuard(QObject):
         finally:
             self._busy = False
 
-    def eventFilter(self, watched, event) -> bool:  # noqa: N802 (Qt API)
+    def eventFilter(self, watched, event) -> bool:
         if watched is self._dialog and event.type() in self._EVENTS:
             self.fit()
         return False

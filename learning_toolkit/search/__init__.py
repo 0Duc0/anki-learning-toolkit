@@ -20,22 +20,23 @@ from aqt.qt import (
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
-    QLabel,
     QKeySequence,
+    QLabel,
     QLineEdit,
     QMenu,
     QObject,
     QPushButton,
     QScrollArea,
+    Qt,
     QToolButton,
     QVBoxLayout,
     QWidget,
-    Qt,
     qconnect,
     sip,
 )
 from aqt.utils import showWarning
 
+from ..common.config import SectionConfig
 from .core import (
     DEFAULT_MEANING_FIELDS,
     DEFAULT_WORD_FIELDS,
@@ -43,32 +44,30 @@ from .core import (
     FIELD_WORD,
     MATCH_CONTAINS,
     MATCH_CONTAINS_WORD,
-    MATCH_RELATED,
-    WORD_CONTAINS,
-
-    WORD_RELATED,
-    WordSearch,
-    build_word_query,
-    deck_from_search,
-    merged_field_list,
-    pick_fields,
-    recommended_fields,
     MATCH_EMPTY,
     MATCH_ENDS,
     MATCH_EXACT,
     MATCH_NOT_EMPTY,
+    MATCH_RELATED,
     MATCH_STARTS,
     QUICK_FILTERS,
     QUICK_LABELS,
+    WORD_CONTAINS,
+    WORD_RELATED,
     SearchMetadata,
     SearchSpec,
+    WordSearch,
     build_query,
     build_quick_query,
+    build_word_query,
     collect_metadata,
+    deck_from_search,
+    merged_field_list,
+    pick_fields,
+    recommended_fields,
     rewrite_search_bar,
 )
 from .panel import WordSearchPanel, focus_action, install_panel
-from ..common.config import SectionConfig
 
 _CFG = SectionConfig('search')
 
@@ -374,7 +373,7 @@ class _HeightGuard(QObject):
         finally:
             self._busy = False
 
-    def eventFilter(self, watched, event) -> bool:  # noqa: N802 (Qt API)
+    def eventFilter(self, watched, event) -> bool:
         if watched in (self._dialog, self._content) and event.type() in self._EVENTS:
             self.fit()
         return False

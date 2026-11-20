@@ -10,11 +10,17 @@ from aqt.operations import QueryOp
 from aqt.qt import QAction, QDialog, QTimer, qconnect
 from aqt.utils import showInfo
 
-from .core import CollectionUnavailable, Options, collect_snapshot, options_dict, parse_options
-from .display import update_script
-from .settings import SettingsDialog
 from ..common.config import SectionConfig
 from ..common.menu import toolkit_menu
+from .core import (
+    CollectionUnavailable,
+    Options,
+    collect_snapshot,
+    options_dict,
+    parse_options,
+)
+from .display import update_script
+from .settings import SettingsDialog
 
 _CFG = SectionConfig('deck_progress')
 

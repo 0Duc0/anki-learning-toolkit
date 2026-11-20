@@ -23,8 +23,19 @@ from typing import Optional
 from aqt import gui_hooks
 from aqt.browser import Browser
 from aqt.qt import (
-    QApplication, QColor, QFontMetrics, QMenu, QPainter, QPalette, QRect, QStyle, QStyledItemDelegate,
-    QStyleOptionViewItem, Qt, QWidget, qconnect,
+    QApplication,
+    QColor,
+    QFontMetrics,
+    QMenu,
+    QPainter,
+    QPalette,
+    QRect,
+    QStyle,
+    QStyledItemDelegate,
+    QStyleOptionViewItem,
+    Qt,
+    QWidget,
+    qconnect,
 )
 from aqt.studydeck import StudyDeck
 from aqt.utils import tr
@@ -252,7 +263,7 @@ def _decorate(dialog: StudyDeck) -> None:
 _original_redraw = StudyDeck.redraw
 
 
-def _redraw_with_counts(self: StudyDeck, filt: str, focus: Optional[str] = None) -> None:
+def _redraw_with_counts(self: StudyDeck, filt: str, focus: str | None = None) -> None:
     _original_redraw(self, filt, focus)  # stock behaviour first, always
     try:
         if _is_browser_change_deck(self):

@@ -9,8 +9,8 @@ from datetime import datetime
 from anki.consts import REVLOG_RESCHED
 from aqt import gui_hooks, mw
 from aqt.qt import (
-    QAction,
     QAbstractItemView,
+    QAction,
     QCheckBox,
     QComboBox,
     QDialog,
@@ -21,14 +21,14 @@ from aqt.qt import (
     QFrame,
     QGridLayout,
     QGroupBox,
-    QHeaderView,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
-
     QObject,
     QPalette,
     QProgressBar,
     QPushButton,
+    Qt,
     QTableWidget,
     QTableWidgetItem,
     QTabWidget,
@@ -36,14 +36,13 @@ from aqt.qt import (
     QToolButton,
     QVBoxLayout,
     QWidget,
-    Qt,
     qconnect,
 )
 from aqt.utils import askUser, tooltip
 
-from .core import SessionTimer, format_duration
 from ..common.config import SectionConfig
 from ..common.menu import submenu, toolkit_menu
+from .core import SessionTimer, format_duration
 
 _CFG = SectionConfig('study_clock')
 
@@ -106,7 +105,7 @@ class ActivityFilter(QObject):
         }
     )
 
-    def eventFilter(self, watched, event) -> bool:  # noqa: N802 - Qt API
+    def eventFilter(self, watched, event) -> bool:
         global _last_user_activity
         if event.type() in self.ACTIVITY_EVENTS:
             _last_user_activity = time.monotonic()

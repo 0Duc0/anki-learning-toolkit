@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import re
 import shutil
+from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Iterator, Sequence, TypeVar
+from typing import TypeVar
 
 from anki.collection import Collection, OpChanges
-
 
 STAGE_RE = re.compile(r"^([A-Za-z])\.\s*(.+)$")
 _T = TypeVar("_T")

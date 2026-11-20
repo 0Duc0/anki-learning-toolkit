@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
 
 from anki.collection import Collection, SearchNode
-
 
 MATCH_EXACT = "exact"
 MATCH_CONTAINS = "contains"
@@ -589,7 +588,7 @@ def rewrite_search_bar(
 
 
 # --- recommendations for the deck the Browser shows (user 2026-11-19) -------------------------------------
-_ID_LIKE = re.compile(r"(id|key|guid|sort\w*|nr|number)$", re.I)
+_ID_LIKE = re.compile(r"(id|key|guid|sort\w*|nr|number)$", re.IGNORECASE)
 _DECK_RE = re.compile(r'(?:^|\s)"?deck:(?:"([^"]+)"|([^\s"]+))')
 
 
@@ -602,7 +601,7 @@ def deck_from_search(query: str) -> str:
     return "" if deck.casefold() in ("", "current", "filtered") else deck
 
 
-def recommended_fields(meta: "SearchMetadata", deck: str, limit: int = 3) -> tuple[str, ...]:
+def recommended_fields(meta: SearchMetadata, deck: str, limit: int = 3) -> tuple[str, ...]:
     """Sort fields of the deck's note types first, then their word fields (e.g. Traditional, Simplified)."""
     if not deck:
         return ()

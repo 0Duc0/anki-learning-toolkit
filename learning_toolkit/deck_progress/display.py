@@ -1,11 +1,10 @@
 """Escaped, self-contained HTML. No collection access."""
 
-from html import escape
 import json
+from html import escape
 from pathlib import Path
 
 from .core import Options, Snapshot
-
 
 HERE = Path(__file__).resolve().parent
 CSS = (HERE / "web/panel.css").read_text(encoding="utf-8")
