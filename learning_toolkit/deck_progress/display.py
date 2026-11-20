@@ -42,23 +42,30 @@ def _goal_row(label: str, number: int, total: int, *, fraction: bool, bar: bool)
     )
 
 
-def _states_html(options: Options, states: StateCounts, unit: str) -> str:
-    """The state row in the counter's unit: cards, notes, or both (cards first, notes small)."""
-    units = ("cards", "notes") if unit == "both" else (unit,)
+def _states_row(options: Options, states: StateCounts, unit: str, prefix: str) -> str:
     chips = []
     for state in SHOWN_STATES:
-        numbers = [states.get(state, u) for u in units]
-        if state == "suspended" and not any(numbers):
+        number = states.get(state, unit)
+        if state == "suspended" and not number:
             continue
-        sub = f' <span class="dp-st-sub">({numbers[1]:,} notes)</span>' if len(numbers) == 2 else ""
-        chips.append(f'<span class="dp-st dp-{state}"><b>{numbers[0]:,}</b> {escape(options.label(state))}{sub}</span>')
+        chips.append(f'<span class="dp-st dp-{state}"><b>{number:,}</b> {escape(options.label(state))}</span>')
+    head = f'<span class="dp-st-unit">{escape(prefix)}</span>' if prefix else ""
     if unit == "cards":
-        tip = "Cards in the counter decks by state, as Anki marks them."
+        tip = "Cards in the counter decks by state, as Anki marks them. Suspended cards are counted apart."
     else:
-        tip = ("Cards in the counter decks by state, as Anki marks them. " if unit == "both" else "") + (
-            "Each note counts once, in its most active state: relearning, then learning, then review, then new. "
-            "A note is suspended only when all its cards are.")
-    return f'<span class="dp-states" title="{escape(tip, quote=True)}">' + "".join(chips) + "</span>"
+        tip = ("Notes in the counter decks by state. Each note counts once, in its most active state: "
+               "relearning, then learning, then review, then new. A note is suspended only when all its cards are.")
+    return f'<span class="dp-states" title="{escape(tip, quote=True)}">{head}' + "".join(chips) + "</span>"
+
+
+def _states_html(options: Options, states: StateCounts, cards: bool, notes: bool) -> str:
+    """Card states and/or note states, one row each. Rows get a small 'Cards' / 'Notes' label when it isn't obvious."""
+    rows = []
+    if cards:
+        rows.append(_states_row(options, states, "cards", "Cards" if notes else ""))
+    if notes:
+        rows.append(_states_row(options, states, "notes", "Notes"))
+    return "".join(rows)
 
 
 def _span(days: int) -> str:
@@ -73,22 +80,29 @@ def _span(days: int) -> str:
     return f"about {days / 365:.1f} years"
 
 
-def _estimate_html(estimate: Estimate | None, note: str, today: date | None = None) -> str:
+def _estimate_html(estimate: Estimate | None, note: str, today: date | None = None,
+                   left: int | None = None, left_unit: str = "notes") -> str:
+    """The finish line. "N left" is shown only when asked for (left is not None)."""
+    left_text = f"{left:,} {left_unit} left" if left is not None else ""
     if estimate is None:
-        return f'<span class="dp-estimate">{escape(note)}</span>' if note else ""
+        text = " · ".join(t for t in (left_text, note) if t)
+        return f'<span class="dp-estimate">{escape(text)}</span>' if text else ""
     if estimate.remaining <= 0:
         return '<span class="dp-estimate">All done 🎉</span>'
     finish = (today or date.today()) + timedelta(days=estimate.calendar_days)
     when = f"{finish.day} {finish.strftime('%b')}" + (f" {finish.year}" if finish.year != (today or date.today()).year else "")
     per = f"{estimate.per_day:.0f}" if estimate.per_day >= 10 else f"{estimate.per_day:.1f}".rstrip("0").rstrip(".")
     if estimate.mode == "fixed":
-        line = f"{estimate.remaining:,} {estimate.unit} left · at {per}/day: {_span(estimate.calendar_days)} (≈ {when})"
+        line = f"At {per}/day: {_span(estimate.calendar_days)} (≈ {when})"
         tip = f"Fixed pace: {per} {estimate.unit} per day."
     else:
-        line = f"{estimate.remaining:,} {estimate.unit} left · at your pace: {_span(estimate.calendar_days)} (≈ {when})"
+        line = f"At your pace: {_span(estimate.calendar_days)} (≈ {when})"
         tip = (f"Your pace: about {per} new {estimate.unit} per study day, from {estimate.basis} "
                f"(recent days weigh more). {estimate.study_days} study days still needed. "
                f"Days without new {estimate.unit} don't lower the pace.")
+    tip += f" Left: {estimate.remaining:,} {estimate.unit} (goal minus what the counter counts)."
+    if left_text:
+        line = left_text + " · " + line[0].lower() + line[1:]
     return f'<span class="dp-estimate" title="{escape(tip, quote=True)}">{escape(line)}</span>'
 
 
@@ -175,9 +189,11 @@ def panel_html(options: Options, snapshot: Snapshot | None, *, updating=False, e
         goal_html = '<span class="dp-goals">' + "".join(goals) + '</span>' if goals else ""
         extra = ""
         if result.states is not None and not result.problems:
-            extra += _states_html(options, result.states, counter.unit)
-        if counter.estimate != "off" and not result.problems:
-            extra += _estimate_html(result.estimate, result.estimate_note)
+            extra += _states_html(options, result.states, counter.show_states, counter.show_note_states)
+        if (counter.estimate != "off" or counter.show_left) and not result.problems:
+            left = result.left if counter.show_left else None
+            extra += _estimate_html(result.estimate if counter.estimate != "off" else None,
+                                    result.estimate_note, left=left, left_unit=result.left_unit)
         warning = '<span class="dp-warning">Check deck selection</span>' if result.problems else ""
         tiles.append(
             f'<button type="button" class="dp-counter" data-dp-edit="{key}" title="{title}">'

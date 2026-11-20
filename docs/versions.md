@@ -6,7 +6,7 @@ so a part behaves the same in the toolkit and on its own.
 | You want | Download |
 |---|---|
 | All eight parts | `learning_toolkit-<version>.ankiaddon` from a `toolkit-v…` release |
-| Only one part | `<package>-<version>.ankiaddon` from that part's release (e.g. `deck-progress-v1.5.0`) |
+| Only one part | `<package>-<version>.ankiaddon` from that part's release (e.g. `deck-progress-v1.6.0`) |
 | An older version | the release of that version, or **Older versions** (the last stand-alone builds) |
 
 All releases: [Releases](../../../releases). Each release lists what changed.
@@ -27,11 +27,11 @@ Whenever a part gets a new version, the toolkit gets one too, and its release na
 | Quick Note Mover | `note_stage_mover` | 1.5.1 |
 | Change Deck counts | `change_deck_counts` | 1.1.1 |
 | Words Left | `words_left` | 1.0.1 |
-| Deck Progress | `deck_progress` | 1.5.0 |
+| Deck Progress | `deck_progress` | 1.6.0 |
 | Search Assistant | `simple_search_assistant` | 4.0.0 |
 | Sound Volume | `sound_volume` | 1.0.1 |
 | Study Session Clock | `study_session_clock` | 2.4.1 |
-| **Learning Toolkit** | `learning_toolkit` | 1.2.0 |
+| **Learning Toolkit** | `learning_toolkit` | 1.3.0 |
 
 ## Installing any file
 

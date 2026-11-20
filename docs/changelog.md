@@ -1,5 +1,15 @@
 # Changelog
 
+## Learning Toolkit 1.3.0 – 2026-11-20
+
+- **Deck Progress 1.6.0**
+  - Card states and note states are two separate options; with both on you get two rows, labelled *Cards* and *Notes*.
+    The *Count* setting no longer changes the state rows.
+  - "N notes left" is shown only when you tick *Show what's left*, also without an estimate.
+  - *Left* is again the goal total minus what the counter counts, so it follows the counter's card states
+    (for example mature only). The estimate is left ÷ your pace (new notes per study day).
+  - The estimate line is smaller.
+
 ## Learning Toolkit 1.2.0 – 2026-11-20
 
 - **Deck Progress 1.5.0**

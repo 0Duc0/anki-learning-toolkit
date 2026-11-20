@@ -277,7 +277,7 @@ class SettingsDialog(QDialog):
         self.unit.addItem("Cards", "cards")
         self.unit.addItem("Notes", "notes")
         self.unit.addItem("Cards and notes", "both")
-        self.unit.setToolTip("Count individual cards, distinct notes, or both. This also decides what the card-state row and the estimate count.")
+        self.unit.setToolTip("Count individual cards, distinct notes, or both.")
         self.form.addRow("Count", self.unit)
         self.counter_states = StateSelection("Counter card states")
         self.counter_states.setToolTip("Choose the scheduling states to count.")
@@ -334,8 +334,12 @@ class SettingsDialog(QDialog):
         details_tab = QWidget()
         details = QVBoxLayout(details_tab)
         self.show_states = QCheckBox("Show card states (New, Learning, Relearning, Review, Suspended)")
-        self.show_states.setToolTip("Cards and/or notes in the counter decks by state (follows Count), in Anki's colours. Suspended cards are counted apart.")
+        self.show_states.setToolTip("Cards in the counter decks by state, in Anki's colours. Suspended cards are counted apart.")
         details.addWidget(self.show_states)
+        self.show_note_states = QCheckBox("Show note states")
+        self.show_note_states.setToolTip("Notes in the counter decks by state. Each note counts once, in its most active state "
+                                         "(relearning, learning, review, new); suspended only when all its cards are.")
+        details.addWidget(self.show_note_states)
         rename = QPushButton("Rename states…")
         rename.setAutoDefault(False)
         rename.setToolTip("Use your own words, e.g. Neu, Lernen, Wiederholen")
@@ -356,11 +360,15 @@ class SettingsDialog(QDialog):
         self.per_day.setSuffix(" per day")
         estimate_form.addRow("Fixed pace", self.per_day)
         details.addLayout(estimate_form)
+        self.show_left = QCheckBox("Show what's left (e.g. \u201c1,995 notes left\u201d)")
+        self.show_left.setToolTip("Goal total minus what the counter counts, so it follows the counter's card states.")
+        details.addWidget(self.show_left)
         explain = QLabel(
             "<b>At my pace</b> uses how many new notes (or cards) you start on days you study, recent days "
             "counting more. Days off and long breaks don't pull the pace down. If you studied on fewer than "
             "5 days in the last 4 weeks, your last study days are used and the date assumes you study daily.<br>"
-            "<b>Left</b> is the goal total (or all cards of the counter decks) minus the counter."
+            "<b>Left</b> is the goal total (or all notes of the counter decks) minus what the counter counts, so it "
+            "follows the counter's card states (e.g. mature only). The estimate is left ÷ pace."
         )
         explain.setWordWrap(True)
         details.addWidget(explain)
@@ -390,7 +398,8 @@ class SettingsDialog(QDialog):
         for field in (self.name, self.card_label, self.note_label):
             qconnect(field.textChanged, self._edited)
         qconnect(self.unit.currentIndexChanged, self._unit_changed)
-        for box in (self.children, self.stages, self.suspended, self.buried, self.total, self.progress, self.show_states):
+        for box in (self.children, self.stages, self.suspended, self.buried, self.total, self.progress, self.show_states,
+                    self.show_note_states, self.show_left):
             qconnect(box.toggled, self._edited)
         qconnect(self.estimate.currentIndexChanged, self._estimate_changed)
         qconnect(self.per_day.valueChanged, self._edited)
@@ -413,6 +422,8 @@ class SettingsDialog(QDialog):
             include_buried=self.buried.isChecked(),
             all_note_cards=self.all_note_cards.isChecked(),
             show_states=self.show_states.isChecked(),
+            show_note_states=self.show_note_states.isChecked(),
+            show_left=self.show_left.isChecked(),
             estimate=self.estimate.currentData(),
             per_day=self.per_day.value(),
         )
@@ -489,6 +500,8 @@ class SettingsDialog(QDialog):
             self.sources.set_decks(row.decks)
             self.goals.set_decks(row.goal_decks)
             self.show_states.setChecked(row.show_states)
+            self.show_note_states.setChecked(row.show_note_states)
+            self.show_left.setChecked(row.show_left)
             self.estimate.setCurrentIndex(max(0, self.estimate.findData(row.estimate)))
             self.per_day.setValue(row.per_day)
             self.per_day.setEnabled(row.estimate == "fixed")

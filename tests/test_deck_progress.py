@@ -70,13 +70,13 @@ def test_states_like_anki(col):
     # notes: each note once, in its most active state; nids[8] still has an active new card
     assert (st.new_notes, st.learning_notes, st.relearning_notes, st.review_notes, st.suspended_notes) == (32, 1, 1, 6, 0)
     html = display.panel_html(core.Options(counters=(counter(did, show_states=True),), state_labels={"new": "Neu"}), snap)
-    assert "<b>32</b> Neu" in html and "Learning" in html and "dp-suspended" not in html
-    both = core.replace(counter(did, show_states=True), unit="both")
+    assert "<b>71</b> Neu" in html and "Learning" in html and "dp-suspended" in html and "dp-st-unit" not in html
+    notes = counter(did, show_note_states=True)
+    html = display.panel_html(core.Options(counters=(notes,)), core.collect_snapshot(c, core.Options(counters=(notes,))))
+    assert "<b>32</b> New" in html and ">Notes<" in html and "dp-suspended" not in html and "<b>71</b>" not in html
+    both = counter(did, show_states=True, show_note_states=True)
     html = display.panel_html(core.Options(counters=(both,)), core.collect_snapshot(c, core.Options(counters=(both,))))
-    assert "<b>71</b> New" in html and "32 notes" in html and "dp-suspended" in html
-    cards = core.replace(counter(did, show_states=True), unit="cards")
-    html = display.panel_html(core.Options(counters=(cards,)), core.collect_snapshot(c, core.Options(counters=(cards,))))
-    assert "<b>71</b> New" in html and "notes</span>" not in html
+    assert "<b>71</b> New" in html and "<b>32</b> New" in html and ">Cards<" in html and ">Notes<" in html
 
 
 def test_pace_ignores_long_breaks():
@@ -104,28 +104,40 @@ def test_estimate_pace_and_fixed(col):
     est = snap.results[0].estimate
     assert (est.remaining, est.calendar_days) == (25, 3)
     html = display._estimate_html(est, "", today=date(2026, 11, 20))
-    assert "25 notes left" in html and "10/day" in html and "23 Nov" in html
+    assert "left" not in html.split("title=")[0] and "At 10/day" in html and "23 Nov" in html
+    html = display._estimate_html(est, "", today=date(2026, 11, 20), left=25)
+    assert "25 notes left · at 10/day" in html
 
 
-def test_estimate_counts_unstarted_notes_whatever_the_counter_counts(col):
+def test_left_follows_the_counter_states_and_goal(col):
     c, did = col
     nids = c.find_notes("")
     for day, chunk in enumerate((nids[0:3], nids[3:6], nids[6:9], nids[9:12], nids[12:15])):
         _study(c, chunk, day + 1)
-    # a counter of mature cards only (none here) must not turn all 40 notes into "left"
-    mature = counter(did, estimate="pace", counter_states=("relearning", "mature"))
-    est = core.collect_snapshot(c, core.Options(counters=(mature,))).results[0].estimate
-    assert est.remaining == 25
-    # notes waiting in a goal (queue) deck are still to be started
+    # answered counter: 15 of 40 counted -> 25 left; mature-only counter (none mature here): 40 left
+    answered = counter(did, estimate="pace", show_left=True)
+    res = core.collect_snapshot(c, core.Options(counters=(answered,))).results[0]
+    assert res.left == 25 and res.estimate.remaining == 25
+    mature = core.replace(answered, counter_states=("relearning", "mature"))
+    res = core.collect_snapshot(c, core.Options(counters=(mature,))).results[0]
+    assert res.left == 40 and res.estimate.remaining == 40
+    # notes in a goal (queue) deck are part of what is left
     queue = c.decks.id("Lang::JP::Queue")
     model = c.models.by_name("Basic (and reversed card)")
     for i in range(10):
         n = c.new_note(model)
         n["Front"], n["Back"] = f"q{i}", f"q{i}"
         c.add_note(n, queue)
-    goal = core.replace(mature, goal_decks=(core.DeckRef(queue, "Lang::JP::Queue"),))
-    est = core.collect_snapshot(c, core.Options(counters=(goal,))).results[0].estimate
-    assert est.remaining == 35
+    goal = core.replace(answered, goal_decks=(core.DeckRef(queue, "Lang::JP::Queue"),))
+    res = core.collect_snapshot(c, core.Options(counters=(goal,))).results[0]
+    assert res.left == 35
+    # "left" only on request; it can be shown without an estimate
+    only_left = core.replace(goal, estimate="off")
+    html = display.panel_html(core.Options(counters=(only_left,)), core.collect_snapshot(c, core.Options(counters=(only_left,))))
+    assert "35 notes left" in html
+    hidden = core.replace(goal, show_left=False)
+    html = display.panel_html(core.Options(counters=(hidden,)), core.collect_snapshot(c, core.Options(counters=(hidden,))))
+    assert "notes left" not in html.replace("Left:", "") and "At your pace" in html
 
 
 def test_no_history_gives_a_hint(col):
@@ -136,13 +148,15 @@ def test_no_history_gives_a_hint(col):
 
 def test_settings_round_trip():
     raw = {"counters": [{"id": "a", "name": "JP", "decks": [{"id": 5, "name": "X"}], "show_states": True,
-                         "estimate": "fixed", "per_day": 25}], "state_labels": {"new": "Neu", "bogus": "x"}}
+                         "show_note_states": True, "show_left": True, "estimate": "fixed", "per_day": 25}], "state_labels": {"new": "Neu", "bogus": "x"}}
     opts = core.parse_options(raw)
-    assert opts.counters[0].show_states and opts.counters[0].estimate == "fixed" and opts.counters[0].per_day == 25
+    c0 = opts.counters[0]
+    assert c0.show_states and c0.show_note_states and c0.show_left and c0.estimate == "fixed" and c0.per_day == 25
     assert opts.state_labels == {"new": "Neu"} and opts.label("new") == "Neu" and opts.label("review") == "Review"
     assert core.parse_options(core.options_dict(opts)) == opts
     old = core.parse_options({"counters": [{"id": "a", "name": "JP", "decks": []}]})   # 1.3.0 settings
     assert old.counters[0].estimate == "off" and not old.counters[0].show_states
+    assert not old.counters[0].show_note_states and not old.counters[0].show_left
 
 
 def math_ceil(x):

@@ -67,7 +67,9 @@ class Counter:
     goal_states: tuple[str, ...] = ALL_STATES
     include_buried: bool = True
     all_note_cards: bool = False
-    show_states: bool = False
+    show_states: bool = False       # card states row
+    show_note_states: bool = False  # note states row
+    show_left: bool = False         # "N notes left" (goal total minus what the counter counts)
     estimate: str = "off"           # off | pace | fixed
     per_day: int = 20               # fixed pace (notes or cards per day)
 
@@ -130,6 +132,8 @@ class CounterResult:
     states: StateCounts | None = None
     estimate: Estimate | None = None
     estimate_note: str = ""
+    left: int | None = None         # goal total minus what the counter counts (counter unit)
+    left_unit: str = "notes"
 
 
 @dataclass(frozen=True)
@@ -228,6 +232,8 @@ def parse_options(raw: Any) -> Options:
             include_buried=_bool(item, "include_buried", True),
             all_note_cards=_bool(item, "all_note_cards", False),
             show_states=_bool(item, "show_states", False),
+            show_note_states=_bool(item, "show_note_states", False),
+            show_left=_bool(item, "show_left", False),
             estimate=item.get("estimate") if item.get("estimate") in ESTIMATES else "off",
             per_day=_per_day(item.get("per_day")),
         ))
@@ -489,27 +495,30 @@ def collect_snapshot(col: Any, options: Options) -> Snapshot:
             if not problems:
                 extra_ids = tuple(sorted(set(goal_ids) - set(ids)))
                 goal_counts = counts_for(ids, counter, extra_ids)
-        states = state_counts(col.db, ids, counter) if counter.show_states and ids else None
-        estimate, note = None, ""
-        if counter.estimate != "off" and ids and not problems:
-            # The estimate is about starting new material: what is left are the notes (cards) in the counter
-            # and goal decks you have never answered, whatever the counter itself counts.
-            unit = "notes" if counter.unit in ("notes", "both") else "cards"
+        show_any_states = counter.show_states or counter.show_note_states
+        states = state_counts(col.db, ids, counter) if show_any_states and ids else None
+        estimate, note, left = None, "", None
+        unit = "notes" if counter.unit in ("notes", "both") else "cards"
+        if (counter.estimate != "off" or counter.show_left) and ids and not problems:
+            # Left = goal total minus what the counter counts, so it follows the counter's card states
+            # (answered, mature, ...). The goal is the counter decks plus any goal decks.
             extra_ids: tuple[int, ...] = ()
             if counter.goal_decks:
                 goal_ids, goal_problems = resolve_decks(replace(counter, decks=counter.goal_decks, stage_a_only=False), decks)
                 if not goal_problems:
                     extra_ids = tuple(sorted(set(goal_ids) - set(ids)))
-            started = counts_for(ids, replace(counter, counter_states=ANSWERED_STATES, all_note_cards=False), extra_ids)
-            done = started.notes if unit == "notes" else started.cards
-            total = started.total_notes if unit == "notes" else started.total_cards
-            days = None
-            if counter.estimate == "pace":
-                try:
-                    day_start = int(col.sched.day_cutoff) - 86400
-                except Exception:
-                    day_start = int(time.time()) // 86400 * 86400
-                days = first_study_days(col.db, ids + extra_ids, unit, day_start)
-            estimate, note = make_estimate(max(0, total - done), counter, unit, days)
-        results.append(CounterResult(counter, counts, ids, problems, goal_counts, states, estimate, note))
+            scope = counts_for(ids, counter, extra_ids)
+            done = scope.notes if unit == "notes" else scope.cards
+            total = scope.total_notes if unit == "notes" else scope.total_cards
+            left = max(0, total - done)
+            if counter.estimate != "off":
+                days = None
+                if counter.estimate == "pace":
+                    try:
+                        day_start = int(col.sched.day_cutoff) - 86400
+                    except Exception:
+                        day_start = int(time.time()) // 86400 * 86400
+                    days = first_study_days(col.db, ids + extra_ids, unit, day_start)
+                estimate, note = make_estimate(left, counter, unit, days)
+        results.append(CounterResult(counter, counts, ids, problems, goal_counts, states, estimate, note, left, unit))
     return Snapshot(tuple(results), decks)

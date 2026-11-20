@@ -203,11 +203,12 @@
 #deck-progress-panel .dp-relearning b { color: var(--state-learn, #dc2626); }
 #deck-progress-panel .dp-review b { color: var(--state-review, #16a34a); }
 #deck-progress-panel .dp-suspended b { color: var(--state-suspended, #ca8a04); }
-#deck-progress-panel .dp-st-sub { color: var(--dp-muted); font-size: 11px; }
+#deck-progress-panel .dp-states + .dp-states { margin-top: 6px; }
+#deck-progress-panel .dp-st-unit { color: var(--dp-muted); font-size: 10px; text-transform: uppercase; letter-spacing: .04em; }
 #deck-progress-panel .dp-estimate {
   display: block;
   margin-top: 8px;
-  font-size: 11px;
+  font-size: 10px;
   line-height: 1.35;
   color: var(--dp-muted);
 }
