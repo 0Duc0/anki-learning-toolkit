@@ -42,14 +42,23 @@ def _goal_row(label: str, number: int, total: int, *, fraction: bool, bar: bool)
     )
 
 
-def _states_html(options: Options, states: StateCounts) -> str:
+def _states_html(options: Options, states: StateCounts, unit: str) -> str:
+    """The state row in the counter's unit: cards, notes, or both (cards first, notes small)."""
+    units = ("cards", "notes") if unit == "both" else (unit,)
     chips = []
     for state in SHOWN_STATES:
-        number = getattr(states, state)
-        if state == "suspended" and not number:
+        numbers = [states.get(state, u) for u in units]
+        if state == "suspended" and not any(numbers):
             continue
-        chips.append(f'<span class="dp-st dp-{state}"><b>{number:,}</b> {escape(options.label(state))}</span>')
-    return '<span class="dp-states">' + "".join(chips) + "</span>"
+        sub = f' <span class="dp-st-sub">({numbers[1]:,} notes)</span>' if len(numbers) == 2 else ""
+        chips.append(f'<span class="dp-st dp-{state}"><b>{numbers[0]:,}</b> {escape(options.label(state))}{sub}</span>')
+    if unit == "cards":
+        tip = "Cards in the counter decks by state, as Anki marks them."
+    else:
+        tip = ("Cards in the counter decks by state, as Anki marks them. " if unit == "both" else "") + (
+            "Each note counts once, in its most active state: relearning, then learning, then review, then new. "
+            "A note is suspended only when all its cards are.")
+    return f'<span class="dp-states" title="{escape(tip, quote=True)}">' + "".join(chips) + "</span>"
 
 
 def _span(days: int) -> str:
@@ -77,8 +86,9 @@ def _estimate_html(estimate: Estimate | None, note: str, today: date | None = No
         tip = f"Fixed pace: {per} {estimate.unit} per day."
     else:
         line = f"{estimate.remaining:,} {estimate.unit} left · at your pace: {_span(estimate.calendar_days)} (≈ {when})"
-        tip = (f"Your pace: about {per} new {estimate.unit} per study day, from {estimate.basis}. "
-               f"{estimate.study_days} study days still needed. Days without new {estimate.unit} don't lower the pace.")
+        tip = (f"Your pace: about {per} new {estimate.unit} per study day, from {estimate.basis} "
+               f"(recent days weigh more). {estimate.study_days} study days still needed. "
+               f"Days without new {estimate.unit} don't lower the pace.")
     return f'<span class="dp-estimate" title="{escape(tip, quote=True)}">{escape(line)}</span>'
 
 
@@ -165,7 +175,7 @@ def panel_html(options: Options, snapshot: Snapshot | None, *, updating=False, e
         goal_html = '<span class="dp-goals">' + "".join(goals) + '</span>' if goals else ""
         extra = ""
         if result.states is not None and not result.problems:
-            extra += _states_html(options, result.states)
+            extra += _states_html(options, result.states, counter.unit)
         if counter.estimate != "off" and not result.problems:
             extra += _estimate_html(result.estimate, result.estimate_note)
         warning = '<span class="dp-warning">Check deck selection</span>' if result.problems else ""

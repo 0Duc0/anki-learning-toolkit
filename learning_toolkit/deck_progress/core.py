@@ -89,6 +89,16 @@ class StateCounts:
     relearning: int = 0
     review: int = 0
     suspended: int = 0
+    # The same states for notes: each note counts once, in its most active state
+    # (relearning, then learning, then review, then new; suspended only when all its cards are).
+    new_notes: int = 0
+    learning_notes: int = 0
+    relearning_notes: int = 0
+    review_notes: int = 0
+    suspended_notes: int = 0
+
+    def get(self, state: str, unit: str) -> int:
+        return getattr(self, state + ("_notes" if unit == "notes" else ""))
 
 
 @dataclass(frozen=True)
@@ -355,10 +365,11 @@ def _scope_sql(deck_ids: tuple[int, ...], table: str = "") -> tuple[str, tuple[i
 
 
 def state_counts(db: Any, deck_ids: tuple[int, ...], counter: Counter) -> StateCounts:
-    """Cards per state in the counter decks, like Anki marks them. Suspended cards are counted apart."""
+    """Cards and notes per state in the counter decks, like Anki marks them. Suspended cards are counted apart."""
     if not deck_ids:
         return StateCounts()
     totals = [0, 0, 0, 0, 0]
+    notes: dict[int, list[int]] = {}
     buried = "" if counter.include_buried else " AND queue NOT IN (-2, -3)"
     for start in range(0, len(deck_ids), SQL_BATCH):
         where, params = _scope_sql(deck_ids[start:start + SQL_BATCH])
@@ -366,8 +377,28 @@ def state_counts(db: Any, deck_ids: tuple[int, ...], counter: Counter) -> StateC
             "SELECT SUM(type = 0 AND queue != -1), SUM(type = 1 AND queue != -1), SUM(type = 3 AND queue != -1), "
             f"SUM(type = 2 AND queue != -1), SUM(queue = -1) FROM cards WHERE {where}{buried}", *params)
         totals = [t + int(v or 0) for t, v in zip(totals, row or ())]
-    suspended = totals[4] if counter.include_suspended else 0
-    return StateCounts(totals[0], totals[1], totals[2], totals[3], suspended)
+        for nid, relearn, learn, review, active in db.all(
+                "SELECT nid, MAX(type = 3 AND queue != -1), MAX(type = 1 AND queue != -1), "
+                f"MAX(type = 2 AND queue != -1), MAX(queue != -1) FROM cards WHERE {where}{buried} GROUP BY nid",
+                *params):
+            flags = notes.setdefault(int(nid), [0, 0, 0, 0])
+            for i, value in enumerate((relearn, learn, review, active)):
+                flags[i] = max(flags[i], int(value or 0))
+    by_note = {"new": 0, "learning": 0, "relearning": 0, "review": 0, "suspended": 0}
+    for relearn, learn, review, active in notes.values():
+        if not active:
+            by_note["suspended"] += 1
+        elif relearn:
+            by_note["relearning"] += 1
+        elif learn:
+            by_note["learning"] += 1
+        elif review:
+            by_note["review"] += 1
+        else:
+            by_note["new"] += 1
+    if not counter.include_suspended:
+        totals[4] = by_note["suspended"] = 0
+    return StateCounts(*totals, *(by_note[k] for k in ("new", "learning", "relearning", "review", "suspended")))
 
 
 def first_study_days(db: Any, deck_ids: tuple[int, ...], unit: str, day_start: int) -> dict[int, int]:
@@ -461,17 +492,24 @@ def collect_snapshot(col: Any, options: Options) -> Snapshot:
         states = state_counts(col.db, ids, counter) if counter.show_states and ids else None
         estimate, note = None, ""
         if counter.estimate != "off" and ids and not problems:
+            # The estimate is about starting new material: what is left are the notes (cards) in the counter
+            # and goal decks you have never answered, whatever the counter itself counts.
             unit = "notes" if counter.unit in ("notes", "both") else "cards"
-            totals = goal_counts if goal_counts is not None else counts
-            done = counts.notes if unit == "notes" else counts.cards
-            total = totals.total_notes if unit == "notes" else totals.total_cards
+            extra_ids: tuple[int, ...] = ()
+            if counter.goal_decks:
+                goal_ids, goal_problems = resolve_decks(replace(counter, decks=counter.goal_decks, stage_a_only=False), decks)
+                if not goal_problems:
+                    extra_ids = tuple(sorted(set(goal_ids) - set(ids)))
+            started = counts_for(ids, replace(counter, counter_states=ANSWERED_STATES, all_note_cards=False), extra_ids)
+            done = started.notes if unit == "notes" else started.cards
+            total = started.total_notes if unit == "notes" else started.total_cards
             days = None
             if counter.estimate == "pace":
                 try:
                     day_start = int(col.sched.day_cutoff) - 86400
                 except Exception:
                     day_start = int(time.time()) // 86400 * 86400
-                days = first_study_days(col.db, ids, unit, day_start)
+                days = first_study_days(col.db, ids + extra_ids, unit, day_start)
             estimate, note = make_estimate(max(0, total - done), counter, unit, days)
         results.append(CounterResult(counter, counts, ids, problems, goal_counts, states, estimate, note))
     return Snapshot(tuple(results), decks)

@@ -24,7 +24,7 @@ menu, one settings file and one place to switch parts on and off.
 
 Requires Anki 25.02 or newer.
 
-**Only want one part?** Every part is also released on its own (e.g. `deck_progress-1.4.0.ankiaddon`), and
+**Only want one part?** Every part is also released on its own (e.g. `deck_progress-1.5.0.ankiaddon`), and
 older versions stay downloadable. How versions, upgrading and downgrading work: [docs/versions.md](docs/versions.md).
 What changed: [docs/changelog.md](docs/changelog.md).
 

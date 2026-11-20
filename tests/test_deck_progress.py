@@ -67,8 +67,16 @@ def test_states_like_anki(col):
     st = snap.results[0].states
     assert (st.learning, st.relearning, st.review, st.suspended) == (1, 1, 6, 1)
     assert st.new == 80 - 1 - 1 - 6 - 1
+    # notes: each note once, in its most active state; nids[8] still has an active new card
+    assert (st.new_notes, st.learning_notes, st.relearning_notes, st.review_notes, st.suspended_notes) == (32, 1, 1, 6, 0)
     html = display.panel_html(core.Options(counters=(counter(did, show_states=True),), state_labels={"new": "Neu"}), snap)
-    assert "Neu" in html and "Learning" in html and 'dp-suspended' in html
+    assert "<b>32</b> Neu" in html and "Learning" in html and "dp-suspended" not in html
+    both = core.replace(counter(did, show_states=True), unit="both")
+    html = display.panel_html(core.Options(counters=(both,)), core.collect_snapshot(c, core.Options(counters=(both,))))
+    assert "<b>71</b> New" in html and "32 notes" in html and "dp-suspended" in html
+    cards = core.replace(counter(did, show_states=True), unit="cards")
+    html = display.panel_html(core.Options(counters=(cards,)), core.collect_snapshot(c, core.Options(counters=(cards,))))
+    assert "<b>71</b> New" in html and "notes</span>" not in html
 
 
 def test_pace_ignores_long_breaks():
@@ -97,6 +105,27 @@ def test_estimate_pace_and_fixed(col):
     assert (est.remaining, est.calendar_days) == (25, 3)
     html = display._estimate_html(est, "", today=date(2026, 11, 20))
     assert "25 notes left" in html and "10/day" in html and "23 Nov" in html
+
+
+def test_estimate_counts_unstarted_notes_whatever_the_counter_counts(col):
+    c, did = col
+    nids = c.find_notes("")
+    for day, chunk in enumerate((nids[0:3], nids[3:6], nids[6:9], nids[9:12], nids[12:15])):
+        _study(c, chunk, day + 1)
+    # a counter of mature cards only (none here) must not turn all 40 notes into "left"
+    mature = counter(did, estimate="pace", counter_states=("relearning", "mature"))
+    est = core.collect_snapshot(c, core.Options(counters=(mature,))).results[0].estimate
+    assert est.remaining == 25
+    # notes waiting in a goal (queue) deck are still to be started
+    queue = c.decks.id("Lang::JP::Queue")
+    model = c.models.by_name("Basic (and reversed card)")
+    for i in range(10):
+        n = c.new_note(model)
+        n["Front"], n["Back"] = f"q{i}", f"q{i}"
+        c.add_note(n, queue)
+    goal = core.replace(mature, goal_decks=(core.DeckRef(queue, "Lang::JP::Queue"),))
+    est = core.collect_snapshot(c, core.Options(counters=(goal,))).results[0].estimate
+    assert est.remaining == 35
 
 
 def test_no_history_gives_a_hint(col):

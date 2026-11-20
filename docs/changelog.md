@@ -1,5 +1,16 @@
 # Changelog
 
+## Learning Toolkit 1.2.0 – 2026-11-20
+
+- **Deck Progress 1.5.0**
+  - The card-state row follows the counter's *Count* setting: cards, notes, or cards and notes (notes in brackets).
+    In note mode each note counts once, in its most active state.
+  - The finish estimate always counts the notes (or cards) you have never answered in the counter and goal decks.
+    It no longer depends on which card states the counter counts, so a counter of mature cards doesn't make every
+    note "left".
+  - The pace also uses words started in the goal decks.
+  - The estimate line is smaller and quieter; its tooltip explains the pace.
+
 ## Learning Toolkit 1.1.0 – 2026-11-20
 
 - **Search Assistant 4.0.0**
