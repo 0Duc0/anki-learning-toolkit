@@ -1,0 +1,103 @@
+{
+  "modules": {
+    "stage_shifter": true,
+    "note_mover": true,
+    "change_deck": true,
+    "words_left": true,
+    "deck_progress": true,
+    "search": true,
+    "sound": true,
+    "study_clock": true
+  },
+  "stage_shifter": {
+    "direction": "toward_a",
+    "start_key": "e",
+    "stop_key": "a",
+    "include_new": true,
+    "include_learning": false,
+    "include_review": false,
+    "include_suspended": false,
+    "max_per_source": 100,
+    "limit_unit": "cards",
+    "even": false,
+    "even_notes": 20
+  },
+  "note_mover": {
+    "last_parent": "",
+    "last_stage": "",
+    "target_deck_id": 0,
+    "last_target_name": "",
+    "target_collection_path": "",
+    "shortcut": "",
+    "warn_before_stage_reassignment": true,
+    "saved_shortcut": "",
+    "set_target_shortcut": ""
+  },
+  "search": {
+    "last_field": "",
+    "last_match": "exact",
+    "shortcut": "",
+    "quick_shortcut": "",
+    "quick_combine": true,
+    "last_field_choice": "@word",
+    "word_mode": "contains",
+    "word_deck": "",
+    "word_cards": "",
+    "word_panel_open": true,
+    "word_search_shortcut": "Ctrl+Shift+W",
+    "word_fields": [
+      "Headword",
+      "Simplified",
+      "Traditional",
+      "Word",
+      "Reading",
+      "Vietnamese",
+      "Zeichen",
+      "Hanzi",
+      "Kanji",
+      "Expression",
+      "Vocab",
+      "Vocabulary",
+      "Front"
+    ],
+    "meaning_fields": [
+      "Gloss",
+      "ProductionPrompt",
+      "MainMeaning",
+      "English",
+      "Schluesselwort",
+      "MeaningPromptHTML",
+      "Meaning",
+      "Back"
+    ],
+    "search_bar_field": "",
+    "remember_look_in": true
+  },
+  "sound": {
+    "volume": 100,
+    "muted": false,
+    "speed": 1.0,
+    "normalize": false,
+    "step": 10,
+    "volume_up_shortcut": "Ctrl+Alt+Up",
+    "volume_down_shortcut": "Ctrl+Alt+Down",
+    "mute_shortcut": "Ctrl+Alt+M",
+    "show_tooltips": true
+  },
+  "study_clock": {
+    "auto_start": true,
+    "count_background_in_session": true,
+    "show_clock": true,
+    "use_24_hour_clock": true,
+    "show_session": true,
+    "show_active": true,
+    "show_today": true,
+    "show_last_answer_in_review": true,
+    "show_average_answer_in_review": true,
+    "idle_timeout_seconds": 120,
+    "history_default_range_days": 7
+  },
+  "deck_progress": {
+    "profiles": {}
+  }
+}

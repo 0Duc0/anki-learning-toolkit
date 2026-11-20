@@ -1,0 +1,40 @@
+{
+  "last_field": "",
+  "last_match": "exact",
+  "shortcut": "",
+  "quick_shortcut": "",
+  "quick_combine": true,
+  "last_field_choice": "@word",
+  "word_mode": "contains",
+  "word_deck": "",
+  "word_cards": "",
+  "word_panel_open": true,
+  "word_search_shortcut": "Ctrl+Shift+W",
+  "word_fields": [
+    "Headword",
+    "Simplified",
+    "Traditional",
+    "Word",
+    "Reading",
+    "Vietnamese",
+    "Zeichen",
+    "Hanzi",
+    "Kanji",
+    "Expression",
+    "Vocab",
+    "Vocabulary",
+    "Front"
+  ],
+  "meaning_fields": [
+    "Gloss",
+    "ProductionPrompt",
+    "MainMeaning",
+    "English",
+    "Schluesselwort",
+    "MeaningPromptHTML",
+    "Meaning",
+    "Back"
+  ],
+  "search_bar_field": "",
+  "remember_look_in": true
+}

@@ -1,0 +1,13 @@
+{
+  "direction": "toward_a",
+  "start_key": "e",
+  "stop_key": "a",
+  "include_new": true,
+  "include_learning": false,
+  "include_review": false,
+  "include_suspended": false,
+  "max_per_source": 100,
+  "limit_unit": "cards",
+  "even": false,
+  "even_notes": 20
+}

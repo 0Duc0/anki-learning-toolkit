@@ -1,0 +1,17 @@
+{
+  "package": "learning_toolkit",
+  "name": "Learning Toolkit",
+  "human_version": "1.0.0",
+  "min_point_version": 250200,
+  "homepage": "https://github.com/0Duc0/anki-learning-toolkit",
+  "conflicts": [
+    "new_card_stage_shifter",
+    "note_stage_mover",
+    "change_deck_counts",
+    "words_left",
+    "deck_progress",
+    "simple_search_assistant",
+    "sound_volume",
+    "study_session_clock"
+  ]
+}

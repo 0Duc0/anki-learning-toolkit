@@ -1,0 +1,13 @@
+{
+  "auto_start": true,
+  "count_background_in_session": true,
+  "show_clock": true,
+  "use_24_hour_clock": true,
+  "show_session": true,
+  "show_active": true,
+  "show_today": true,
+  "show_last_answer_in_review": true,
+  "show_average_answer_in_review": true,
+  "idle_timeout_seconds": 120,
+  "history_default_range_days": 7
+}

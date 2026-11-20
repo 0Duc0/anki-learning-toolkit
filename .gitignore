@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+dist/
+.ruff_cache/
+meta.json
+user_files/

@@ -1,0 +1,11 @@
+{
+  "volume": 100,
+  "muted": false,
+  "speed": 1.0,
+  "normalize": false,
+  "step": 10,
+  "volume_up_shortcut": "Ctrl+Alt+Up",
+  "volume_down_shortcut": "Ctrl+Alt+Down",
+  "mute_shortcut": "Ctrl+Alt+M",
+  "show_tooltips": true
+}
