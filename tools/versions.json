@@ -1,5 +1,5 @@
 {
-  "toolkit": "1.4.0",
+  "toolkit": "1.5.0",
   "modules": {
     "stage_shifter": {"version": "2.6.0", "package": "new_card_stage_shifter", "name": "Card Stage Shifter", "release": "card-stage-shifter"},
     "note_mover": {"version": "1.5.1", "package": "note_stage_mover", "name": "Quick Note Mover", "release": "quick-note-mover"},
@@ -7,7 +7,7 @@
     "words_left": {"version": "1.0.1", "package": "words_left", "name": "Words Left", "release": "words-left"},
     "deck_progress": {"version": "1.7.0", "package": "deck_progress", "name": "Deck Progress", "release": "deck-progress"},
     "search": {"version": "4.0.0", "package": "simple_search_assistant", "name": "Search Assistant", "release": "search-assistant"},
-    "sound": {"version": "1.0.1", "package": "sound_volume", "name": "Sound Volume", "release": "sound-volume"},
+    "sound": {"version": "1.1.0", "package": "sound_volume", "name": "Sound Volume", "release": "sound-volume"},
     "study_clock": {"version": "2.4.1", "package": "study_session_clock", "name": "Study Session Clock", "release": "study-session-clock"}
   }
 }

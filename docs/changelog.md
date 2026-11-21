@@ -1,5 +1,17 @@
 # Changelog
 
+## Learning Toolkit 1.5.0 – 2026-11-21
+
+- **Sound Volume 1.1.0**
+  - *Even out loud and quiet recordings* works per file now: each recording is measured once
+    (EBU R128 integrated loudness, with Anki's own mpv) and played with a fixed gain so every
+    recording comes out at −18 LUFS. A limiter keeps boosted recordings from clipping.
+    The old live filter measured over ~3 s windows, so single-word clips came out at different levels.
+  - Clips shorter than 0.4 s are measured too; boost is limited to +20 dB, cut to −30 dB.
+  - Measurements are kept in `user_files/sound_loudness.json` and redone when a file changes.
+    The answer audio is measured in the background while the question is shown.
+  - Anki's own mpv filters are left in place (Windows' padding filter used to be replaced).
+
 ## Learning Toolkit 1.4.0 – 2026-11-20
 
 - **Deck Progress 1.7.0**

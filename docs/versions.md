@@ -29,9 +29,9 @@ Whenever a part gets a new version, the toolkit gets one too, and its release na
 | Words Left | `words_left` | 1.0.1 |
 | Deck Progress | `deck_progress` | 1.7.0 |
 | Search Assistant | `simple_search_assistant` | 4.0.0 |
-| Sound Volume | `sound_volume` | 1.0.1 |
+| Sound Volume | `sound_volume` | 1.1.0 |
 | Study Session Clock | `study_session_clock` | 2.4.1 |
-| **Learning Toolkit** | `learning_toolkit` | 1.4.0 |
+| **Learning Toolkit** | `learning_toolkit` | 1.5.0 |
 
 ## Installing any file
 
